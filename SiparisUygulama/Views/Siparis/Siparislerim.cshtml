@@ -1,0 +1,157 @@
+@model List<SiparisUygulama.Models.Sipari>
+@{
+    ViewData["Title"] = "Siparişlerim";
+}
+
+<style>
+    .siparis-card { border: none; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 1rem; overflow: hidden; }
+    .siparis-header { padding: 1rem 1.25rem; background: #f8f9fa; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; }
+    .siparis-body { padding: 1.25rem; }
+    .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
+    .status-teslim { background: #d1fae5; color: #065f46; }
+    .status-hazir  { background: #fef3c7; color: #92400e; }
+    .status-bekle  { background: #e0e7ff; color: #3730a3; }
+    .menu-item-pill { display: inline-block; background: #f1f3f5; border-radius: 20px; padding: 3px 12px; font-size: 0.8rem; margin: 2px; color: #495057; }
+    .timeline { display: flex; align-items: center; gap: 0; margin-top: 0.75rem; }
+    .timeline-step { display: flex; flex-direction: column; align-items: center; flex: 1; }
+    .timeline-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; border: 2px solid #e9ecef; background: white; color: #adb5bd; }
+    .timeline-dot.done { background: #667eea; border-color: #667eea; color: white; }
+    .timeline-dot.active { background: white; border-color: #667eea; color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.2); }
+    .timeline-line { flex: 1; height: 2px; background: #e9ecef; }
+    .timeline-line.done { background: #667eea; }
+    .timeline-label { font-size: 0.68rem; color: #adb5bd; margin-top: 4px; text-align: center; }
+    .timeline-label.done, .timeline-label.active { color: #667eea; font-weight: 600; }
+    .status-iptal { background: #fee2e2; color: #991b1b; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold mb-0">Siparişlerim</h4>
+    <a href="/Restoran/Index" class="btn btn-primary btn-sm rounded-3">
+        <i class="fas fa-plus me-1"></i>Yeni Sipariş
+    </a>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="empty-state">
+        <div >🛒</div>
+        <h5 class="">Henüz siparişiniz yok</h5>
+        <a href="/Restoran/Index" class="btn btn-primary mt-2 rounded-3">İlk Siparişi Ver</a>
+    </div>
+}
+else
+{
+    @foreach (var s in Model.OrderByDescending(x => x.OrderDate))
+    {
+        var statusClass = s.OrderStatus == "Teslim Edildi" ? "status-teslim"
+            : s.OrderStatus == "İptal Edildi" ? "status-iptal"
+            : s.OrderStatus == "Hazır" ? "status-hazir" : "status-bekle";
+
+        <div class="siparis-card card">
+            <div class="siparis-header">
+                <div>
+                    <span class="fw-semibold text-muted small">SİPARİŞ #@s.OrderId</span>
+                    <span class="text-muted small ms-2">· @s.OrderDate.ToString("dd MMM yyyy, HH:mm")</span>
+                </div>
+                <span class="status-badge @statusClass">@s.OrderStatus</span>
+            </div>
+            <div class="siparis-body">
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <div class="text-muted small mb-1"><i class="fas fa-map-marker-alt me-1"></i>Teslimat Adresi</div>
+                        <div class="fw-medium">@s.DeliveryAddress</div>
+                        <div class="mt-2">
+                            @foreach (var item in s.SiparisDetays)
+                            {
+                                <span class="menu-item-pill">@item.MenuItem?.ItemName</span>
+                            }
+                        </div>
+
+                        @{
+                            var adimlar = new[] { "Beklemede", "Hazırlanıyor", "Hazır", "Yolda", "Teslim Edildi" };
+                            var aktifIndex = Array.IndexOf(adimlar, s.OrderStatus);
+                            if (aktifIndex < 0) aktifIndex = 0;
+                        }
+                        <div class="timeline mt-3">
+                            @for (int i = 0; i < adimlar.Length; i++)
+                            {
+                                var isDone = i < aktifIndex;
+                                var isActive = i == aktifIndex;
+                                var dotClass = isDone ? "done" : isActive ? "active" : "";
+                                var labelClass = isDone || isActive ? (isDone ? "done" : "active") : "";
+                                var icon = i == 0 ? "⏳" : i == 1 ? "👨‍🍳" : i == 2 ? "✅" : i == 3 ? "🛵" : "📦";
+                                <div class="timeline-step">
+                                    <div class="timeline-dot @dotClass">@icon</div>
+                                    <div class="timeline-label @labelClass">@adimlar[i]</div>
+                                </div>
+                                @if (i < adimlar.Length - 1)
+                                {
+                                    <div class="timeline-line @(isDone ? "done" : "")"></div>
+                                }
+                            }
+                        </div>
+                    </div>
+                    <div class="col-md-3 text-center border-start border-end">
+                        <div class="text-muted small mb-1">Toplam Tutar</div>
+                        <div class="fw-bold fs-5 text-success">₺@s.TotalAmount</div>
+                    </div>
+                    <div class="col-md-2 d-flex flex-column align-items-center justify-content-center gap-2">
+                        <a href="/Siparis/Detay/@s.OrderId" class="btn btn-outline-primary btn-sm rounded-3 w-100">
+                            <i class="fas fa-eye me-1"></i>Detay
+                        </a>
+                        @if (s.OrderStatus == "Yolda")
+                        {
+                            <a href="/Siparis/Detay/@s.OrderId" class="btn btn-warning btn-sm rounded-3 w-100 fw-semibold">
+                                <i class="fas fa-map-location-dot me-1"></i>Kuryeyi Takip Et
+                            </a>
+                        }
+                        @if (s.OrderStatus == "Beklemede")
+                        {
+                            <form asp-action="IptalEt" method="post" class="w-100">
+                                <input type="hidden" name="orderId" value="@s.OrderId" />
+                                <button type="submit" class="btn btn-outline-danger btn-sm rounded-3 w-100"
+                                    onclick="return confirm('Siparişi iptal etmek istiyor musunuz?')">
+                                    <i class="fas fa-times me-1"></i>İptal
+                                </button>
+                            </form>
+                        }
+                        @if (s.OrderStatus == "Teslim Edildi")
+                        {
+                            <form asp-action="TekrarSiparis" method="post" class="w-100">
+                                <input type="hidden" name="orderId" value="@s.OrderId" />
+                                <button type="submit" class="btn btn-outline-success btn-sm rounded-3 w-100">
+                                    <i class="fas fa-redo me-1"></i>Tekrar Sipariş
+                                </button>
+                            </form>
+                        }
+                        @if (s.Teslimats.Any(t => t.DeliveryStatus == "Teslim Edildi"))
+                        {
+                            <a href="/Yorum/Ekle?orderId=@s.OrderId" class="btn btn-success btn-sm rounded-3 w-100">
+                                <i class="fas fa-star me-1"></i>Yorum Yaz
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@section Scripts {
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+<script>
+const connection = new signalR.HubConnectionBuilder().withUrl("/siparisHub").withAutomaticReconnect().build();
+
+connection.on("SiparisDurumGuncellendi", function(orderId, yeniDurum) {
+    // Sayfayı sessizce yenile - durum değişti bildirimi
+    const toast = document.createElement('div');
+    toast.className = 'position-fixed top-0 end-0 m-3 alert alert-info shadow rounded-3 py-2 px-3';
+    toast.style.zIndex = '9999';
+    toast.innerHTML = '<i class="fas fa-bell me-1"></i>Sipariş #' + orderId + ' durumu: <strong>' + yeniDurum + '</strong>';
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.remove(); location.reload(); }, 2500);
+});
+
+connection.start().catch(err => console.warn('SignalR bağlanamadı:', err));
+</script>
+}

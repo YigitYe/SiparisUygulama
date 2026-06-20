@@ -1,0 +1,669 @@
+@model SiparisUygulama.Models.ViewModels.AdminPanelViewModel
+@{
+    Layout = "~/Views/Shared/_LayoutAdmin.cshtml";
+    ViewData["Title"] = "Admin Paneli";
+}
+
+<style>
+    .stat-card { border: none; border-radius: 14px; padding: 1.2rem; color: white; }
+    .admin-tab-btn { border-radius: 10px !important; font-weight: 500; padding: 8px 18px; font-size: 0.88rem; }
+    .section-card { border: none; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 1.5rem; }
+    .section-card .card-header { background: #f8f9fa; border-bottom: 1px solid #e9ecef; border-radius: 14px 14px 0 0 !important; padding: 0.9rem 1.25rem; font-weight: 600; font-size: 0.92rem; }
+    .table th { font-size: 0.8rem; color: #6c757d; font-weight: 600; border-bottom: 2px solid #e9ecef; }
+    .table td { vertical-align: middle; font-size: 0.85rem; }
+    .form-control, .form-select { border-radius: 8px; border: 1.5px solid #e9ecef; font-size: 0.85rem; }
+    .form-control:focus { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.15); }
+    .duygu-bar { border-radius: 8px; height: 10px; }
+    .menu-pill { display: inline-block; background: #f1f3f5; border-radius: 20px; padding: 2px 8px; font-size: 0.75rem; margin: 1px; }
+    .durum-select { border-radius: 8px; border: 1.5px solid #e9ecef; font-size: 0.82rem; padding: 4px 8px; }
+</style>
+
+<!-- İstatistik Kartları -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card" style="background:linear-gradient(135deg,#667eea,#764ba2);">
+            <div style="font-size:1.6rem;">📦</div>
+            <div class="fw-bold fs-4">@Model.ToplamSiparis</div>
+            <div class="small opacity-75">Toplam Sipariş</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card" style="background:linear-gradient(135deg,#11998e,#38ef7d);">
+            <div style="font-size:1.6rem;">₺</div>
+            <div class="fw-bold fs-4">@Model.ToplamGelir.ToString("N0")</div>
+            <div class="small opacity-75">Toplam Gelir</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card" style="background:linear-gradient(135deg,#f093fb,#f5576c);">
+            <div style="font-size:1.6rem;">👥</div>
+            <div class="fw-bold fs-4">@Model.ToplamKullanici</div>
+            <div class="small opacity-75">Kullanıcı</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card" style="background:linear-gradient(135deg,#4facfe,#00f2fe);">
+            <div style="font-size:1.6rem;">🛵</div>
+            <div class="fw-bold fs-4">@Model.AktifPersonel</div>
+            <div class="small opacity-75">Aktif Personel</div>
+        </div>
+    </div>
+</div>
+
+<!-- NLP Duygu Analizi Özeti -->
+@{
+    var toplamYorum = Model.PozitifYorum + Model.NegatiYorum + Model.NotorYorum;
+    var pozPct = toplamYorum > 0 ? (Model.PozitifYorum * 100 / toplamYorum) : 0;
+    var negPct = toplamYorum > 0 ? (Model.NegatiYorum * 100 / toplamYorum) : 0;
+    var norPct = toplamYorum > 0 ? (Model.NotorYorum * 100 / toplamYorum) : 0;
+}
+@if (toplamYorum > 0)
+{
+    <div class="section-card card mb-4">
+        <div class="card-header"><i class="fas fa-brain me-2 text-purple" style="color:#764ba2;"></i>NLP Duygu Analizi — @toplamYorum Yorum</div>
+        <div class="card-body p-4">
+            <div class="row g-4 align-items-center">
+                <div class="col-md-4">
+                    <div class="d-flex justify-content-around text-center">
+                        <div>
+                            <div class="fw-bold fs-4 text-success">@Model.PozitifYorum</div>
+                            <div class="small text-muted">😊 Pozitif</div>
+                        </div>
+                        <div>
+                            <div class="fw-bold fs-4 text-secondary">@Model.NotorYorum</div>
+                            <div class="small text-muted">😐 Nötr</div>
+                        </div>
+                        <div>
+                            <div class="fw-bold fs-4 text-danger">@Model.NegatiYorum</div>
+                            <div class="small text-muted">😞 Negatif</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between small mb-1"><span class="text-success fw-semibold">Pozitif</span><span>%@pozPct</span></div>
+                        <div class="progress" style="height:10px; border-radius:8px;">
+                            <div class="progress-bar bg-success" style="width:@pozPct%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between small mb-1"><span class="text-secondary fw-semibold">Nötr</span><span>%@norPct</span></div>
+                        <div class="progress" style="height:10px; border-radius:8px;">
+                            <div class="progress-bar bg-secondary" style="width:@norPct%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="d-flex justify-content-between small mb-1"><span class="text-danger fw-semibold">Negatif</span><span>%@negPct</span></div>
+                        <div class="progress" style="height:10px; border-radius:8px;">
+                            <div class="progress-bar bg-danger" style="width:@negPct%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @if (Model.NlpTrendDegerler.Any(d => d != 0))
+            {
+                <div class="mt-4">
+                    <div class="small fw-semibold text-muted mb-2">📈 Son 14 Günlük Duygu Trendi (Ort. Skor)</div>
+                    <div style="height:130px;"><canvas id="nlpTrendGrafik"></canvas></div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<!-- Grafikler -->
+@if (Model.GrafikEtiketler.Any())
+{
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="section-card card h-100">
+                <div class="card-header"><i class="fas fa-chart-bar me-2 text-primary"></i>Son 7 Günlük Siparişler</div>
+                <div class="card-body" style="height:200px;">
+                    <canvas id="siparisGrafik"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="section-card card h-100">
+                <div class="card-header"><i class="fas fa-chart-line me-2 text-success"></i>Son 7 Günlük Gelir (₺)</div>
+                <div class="card-body" style="height:200px;">
+                    <canvas id="gelirGrafik"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    @if (Model.RestoranGrafikEtiketler.Any())
+    {
+        <div class="section-card card mb-4">
+            <div class="card-header"><i class="fas fa-store me-2 text-warning"></i>Restoran Bazlı Sipariş Dağılımı</div>
+            <div class="card-body" style="height:220px;">
+                <canvas id="restoranGrafik"></canvas>
+            </div>
+        </div>
+    }
+}
+
+<!-- Tab Navigasyonu -->
+<ul class="nav nav-pills mb-4 gap-2 flex-wrap" id="adminTabs">
+    <li class="nav-item"><button class="nav-link active admin-tab-btn" onclick="showTab('siparisTab',this)"><i class="fas fa-receipt me-1"></i>Siparişler (@Model.ToplamSiparis)</button></li>
+    <li class="nav-item"><button class="nav-link admin-tab-btn" onclick="showTab('restoranTab',this)"><i class="fas fa-store me-1"></i>Restoranlar (@Model.Restorans.Count)</button></li>
+    <li class="nav-item"><button class="nav-link admin-tab-btn" onclick="showTab('personelTab',this)"><i class="fas fa-motorcycle me-1"></i>Personeller (@Model.Personeller.Count)</button></li>
+    <li class="nav-item"><button class="nav-link admin-tab-btn" onclick="showTab('kullaniciTab',this)"><i class="fas fa-users me-1"></i>Kullanıcılar (@Model.ToplamKullanici)</button></li>
+    <li class="nav-item"><button class="nav-link admin-tab-btn" onclick="showTab('yoneticiTab',this)"><i class="fas fa-user-shield me-1"></i>Yöneticiler (@Model.Yoneticiler.Count)</button></li>
+    <li class="nav-item"><button class="nav-link admin-tab-btn" onclick="showTab('kuryeHaritaTab',this);setTimeout(kuryeHaritaBaslat,100)"><i class="fas fa-map-location-dot me-1"></i>Kurye Haritası</button></li>
+</ul>
+
+<!-- Siparişler Tab -->
+<div id="siparisTab">
+    <div class="section-card card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-list me-2"></i>Tüm Siparişler</span>
+            <a href="/Admin/ExportCSV" class="btn btn-sm btn-outline-success rounded-3">
+                <i class="fas fa-file-csv me-1"></i>CSV İndir
+            </a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">#</th><th>Müşteri</th><th>Ürünler</th><th>Tutar</th><th>Tarih</th><th>Durum</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in Model.Siparisler)
+                        {
+                            <tr>
+                                <td class="ps-3 text-muted">#@s.OrderId</td>
+                                <td class="fw-semibold">@s.Kullanici?.KullaniciAdi</td>
+                                <td>
+                                    @foreach (var d in s.SiparisDetays.Take(2))
+                                    {
+                                        <span class="menu-pill">@d.MenuItem?.ItemName</span>
+                                    }
+                                    @if (s.SiparisDetays.Count > 2)
+                                    {
+                                        <span class="menu-pill text-muted">+@(s.SiparisDetays.Count - 2)</span>
+                                    }
+                                </td>
+                                <td class="fw-semibold text-success">₺@s.TotalAmount</td>
+                                <td class="text-muted">@s.OrderDate.ToString("dd MMM, HH:mm")</td>
+                                <td>
+                                    @if (s.OrderStatus == "Teslim Edildi")
+                                    {
+                                        <span class="badge bg-success rounded-pill">Teslim Edildi</span>
+                                    }
+                                    else
+                                    {
+                                        <form asp-action="SiparisDurumGuncelle" method="post">
+                                            <input type="hidden" name="orderId" value="@s.OrderId" />
+                                            <select name="yeniDurum" class="durum-select" data-current="@s.OrderStatus" onchange="this.form.submit()">
+                                                <option value="Beklemede">⏳ Beklemede</option>
+                                                <option value="Hazırlanıyor">👨‍🍳 Hazırlanıyor</option>
+                                                <option value="Hazır">✅ Hazır</option>
+                                                <option value="Teslim Edildi">🛵 Teslim Edildi</option>
+                                            </select>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Restoran Tab -->
+<div id="restoranTab" style="display:none;">
+    <div class="section-card card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-plus-circle me-2 text-success"></i>Yeni Restoran Ekle</span>
+        </div>
+        <div class="card-body p-3">
+            <form asp-action="RestoranEkle" method="post">
+                <div class="row g-2">
+                    <div class="col-md-3"><input type="text" name="RestaurantName" class="form-control" placeholder="Restoran Adı" required /></div>
+                    <div class="col-md-3"><input type="text" name="Adres" class="form-control" placeholder="Adres" /></div>
+                    <div class="col-md-2"><input type="text" name="TelefonNumarasi" class="form-control" placeholder="Telefon" /></div>
+                    <div class="col-md-2"><input type="email" name="Email" class="form-control" placeholder="Email" /></div>
+                    <div class="col-md-2"><button type="submit" class="btn btn-success btn-sm w-100 py-2">Ekle</button></div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="section-card card">
+        <div class="card-header"><i class="fas fa-list me-2"></i>Tüm Restoranlar (@Model.Restorans.Count)</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr><th class="ps-3">Ad</th><th>Adres</th><th>Telefon</th><th>Email</th><th>İşlem</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.Restorans)
+                        {
+                            <tr>
+                                <td class="ps-3"><input type="text" class="form-control form-control-sm" id="rName_@r.RestaurantId" value="@r.RestaurantName" /></td>
+                                <td><input type="text" class="form-control form-control-sm" id="rAdres_@r.RestaurantId" value="@r.Adres" /></td>
+                                <td><input type="text" class="form-control form-control-sm" id="rTel_@r.RestaurantId" value="@r.TelefonNumarasi" /></td>
+                                <td><input type="email" class="form-control form-control-sm" id="rEmail_@r.RestaurantId" value="@r.Email" /></td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <form asp-action="RestoranGuncelle" method="post" class="d-inline">
+                                            <input type="hidden" name="RestaurantId" value="@r.RestaurantId" />
+                                            <input type="hidden" name="RestaurantName" class="js-r-name" data-id="@r.RestaurantId" />
+                                            <input type="hidden" name="Adres" class="js-r-adres" data-id="@r.RestaurantId" />
+                                            <input type="hidden" name="TelefonNumarasi" class="js-r-tel" data-id="@r.RestaurantId" />
+                                            <input type="hidden" name="Email" class="js-r-email" data-id="@r.RestaurantId" />
+                                            <button type="submit" class="btn btn-warning btn-sm" onclick="syncRestoran(@r.RestaurantId)">Kaydet</button>
+                                        </form>
+                                        <form asp-action="RestoranSil" method="post" class="d-inline">
+                                            <input type="hidden" name="id" value="@r.RestaurantId" />
+                                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Silinsin mi?')">Sil</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Personel Tab -->
+<div id="personelTab" style="display:none;">
+    <div class="section-card card">
+        <div class="card-header"><i class="fas fa-plus-circle me-2 text-success"></i>Yeni Personel Ekle</div>
+        <div class="card-body p-3">
+            <form asp-action="PersonelEkle" method="post">
+                <div class="row g-2">
+                    <div class="col-md-4"><input type="text" name="Adi" class="form-control" placeholder="Ad Soyad" required /></div>
+                    <div class="col-md-3"><input type="text" name="IletisimNumarasi" class="form-control" placeholder="Telefon" /></div>
+                    <div class="col-md-3"><input type="text" name="TeslimatAlani" class="form-control" placeholder="Teslimat Alanı" /></div>
+                    <div class="col-md-2"><button type="submit" class="btn btn-success btn-sm w-100 py-2">Ekle</button></div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="section-card card">
+        <div class="card-header"><i class="fas fa-list me-2"></i>Tüm Personeller (@Model.Personeller.Count)</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr><th class="ps-3">Ad Soyad</th><th>Telefon</th><th>Teslimat Alanı</th><th>Müsaitlik</th><th>Şifre</th><th>İşlem</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Model.Personeller)
+                        {
+                            <tr>
+                                <td class="ps-3"><input type="text" class="form-control form-control-sm" id="pAdi_@p.PersonelId" value="@p.Adi" /></td>
+                                <td><input type="text" class="form-control form-control-sm" id="pTel_@p.PersonelId" value="@p.IletisimNumarasi" /></td>
+                                <td><input type="text" class="form-control form-control-sm" id="pAlani_@p.PersonelId" value="@p.TeslimatAlani" /></td>
+                                <td><span class="badge @(p.MusaitlikDurumu ? "bg-success" : "bg-secondary")">@(p.MusaitlikDurumu ? "Müsait" : "Meşgul")</span></td>
+                                <td>
+                                    <form asp-action="PersonelSifreGuncelle" method="post" class="d-flex gap-1">
+                                        <input type="hidden" name="personelId" value="@p.PersonelId" />
+                                        <input type="password" name="yeniSifre" class="form-control form-control-sm" placeholder="Yeni şifre" style="width:110px;" />
+                                        <button type="submit" class="btn btn-sm btn-outline-warning">Kaydet</button>
+                                    </form>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <form asp-action="PersonelGuncelle" method="post" class="d-inline">
+                                            <input type="hidden" name="PersonelId" value="@p.PersonelId" />
+                                            <input type="hidden" name="Adi" class="js-p-adi" data-id="@p.PersonelId" />
+                                            <input type="hidden" name="IletisimNumarasi" class="js-p-tel" data-id="@p.PersonelId" />
+                                            <input type="hidden" name="TeslimatAlani" class="js-p-alani" data-id="@p.PersonelId" />
+                                            <button type="submit" class="btn btn-warning btn-sm" onclick="syncPersonel(@p.PersonelId)">Kaydet</button>
+                                        </form>
+                                        <form asp-action="PersonelSil" method="post" class="d-inline">
+                                            <input type="hidden" name="id" value="@p.PersonelId" />
+                                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Silinsin mi?')">Sil</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Kullanıcılar Tab -->
+<div id="kullaniciTab" style="display:none;">
+    <div class="section-card card">
+        <div class="card-header"><i class="fas fa-users me-2"></i>Kayıtlı Kullanıcılar (@Model.ToplamKullanici)</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr><th class="ps-3">#</th><th>Kullanıcı Adı</th><th>Email</th><th>Telefon</th><th>İşlem</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var k in Model.Kullanicilar)
+                        {
+                            <tr>
+                                <td class="ps-3 text-muted">@k.KullaniciId</td>
+                                <td class="fw-semibold">@k.KullaniciAdi</td>
+                                <td class="text-muted">@k.Email</td>
+                                <td class="text-muted">@k.Telefon</td>
+                                <td>
+                                    <form asp-action="KullaniciSil" method="post" class="d-inline">
+                                        <input type="hidden" name="id" value="@k.KullaniciId" />
+                                        <button type="submit" class="btn btn-outline-danger btn-sm rounded-3"
+                                            onclick="return confirm('@k.KullaniciAdi silinsin mi?')">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Yöneticiler Tab -->
+<div id="yoneticiTab" style="display:none;">
+    <div class="section-card card mb-3">
+        <div class="card-header"><i class="fas fa-plus-circle me-2 text-success"></i>Yeni Yönetici / Restoran Hesabı Ekle</div>
+        <div class="card-body p-3">
+            <form asp-action="YoneticiEkle" method="post">
+                <div class="row g-2">
+                    <div class="col-md-3"><input type="text" name="kullaniciAdi" class="form-control" placeholder="Kullanıcı Adı" required /></div>
+                    <div class="col-md-3"><input type="password" name="sifre" class="form-control" placeholder="Şifre" required /></div>
+                    <div class="col-md-3">
+                        <select name="rol" class="form-select">
+                            <option value="Restoran">Restoran</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3"><button type="submit" class="btn btn-success btn-sm w-100 py-2">Ekle</button></div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="section-card card">
+        <div class="card-header"><i class="fas fa-list me-2"></i>Mevcut Yönetici Hesapları (@Model.Yoneticiler.Count)</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr><th class="ps-3">#</th><th>Kullanıcı Adı</th><th>Rol</th><th>İşlem</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var y in Model.Yoneticiler)
+                        {
+                            <tr>
+                                <td class="ps-3 text-muted">@y.KullaniciId</td>
+                                <td class="fw-semibold">@y.KullaniciAdi</td>
+                                <td><span class="badge @(y.Rol == "Admin" ? "bg-danger" : "bg-primary")">@y.Rol</span></td>
+                                <td>
+                                    <form asp-action="YoneticiSil" method="post" class="d-inline">
+                                        <input type="hidden" name="id" value="@y.KullaniciId" />
+                                        <button type="submit" class="btn btn-outline-danger btn-sm rounded-3"
+                                            onclick="return confirm('@y.KullaniciAdi silinsin mi?')">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Kurye Haritası Tab -->
+<div id="kuryeHaritaTab" style="display:none;">
+    <div class="section-card card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-map-location-dot me-2 text-primary"></i>Aktif Kurye Konumları</span>
+            <button class="btn btn-sm btn-outline-primary rounded-3" onclick="kuryeHaritaYenile()">
+                <i class="fas fa-sync-alt me-1"></i>Yenile
+            </button>
+        </div>
+        <div class="card-body p-3">
+            <div id="kuryeHarita" style="height:460px;border-radius:12px;z-index:1;"></div>
+            <div class="row mt-3 g-2">
+                @foreach (var p in Model.Personeller)
+                {
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card border-0 rounded-3 p-2" style="background:#f8f9fa;" id="kuryeKart_@p.PersonelId">
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width:36px;height:36px;border-radius:50%;background:@(p.MusaitlikDurumu ? "#11998e" : "#adb5bd");display:flex;align-items:center;justify-content:center;font-size:1.1rem;color:white;">🛵</div>
+                                <div>
+                                    <div class="fw-semibold small">@p.Adi</div>
+                                    @if (p.AnlikEnlem != null)
+                                    {
+                                        <div class="text-muted" style="font-size:0.7rem;">📍 @p.AnlikEnlem.Value.ToString("F4")°, @(p.AnlikBoylam?.ToString("F4") ?? "?")°</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="text-muted" style="font-size:0.7rem;">Konum bilinmiyor</div>
+                                    }
+                                </div>
+                                <span class="badge ms-auto @(p.MusaitlikDurumu ? "bg-success" : "bg-secondary")" style="font-size:0.65rem;">@(p.MusaitlikDurumu ? "Aktif" : "Pasif")</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    @if (Model.GrafikEtiketler.Any())
+    {
+        <text>
+        const grafikEtiketler = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.GrafikEtiketler));
+        new Chart(document.getElementById('siparisGrafik'), {
+            type: 'bar',
+            data: {
+                labels: grafikEtiketler,
+                datasets: [{
+                    label: 'Sipariş',
+                    data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.GrafikDegerler)),
+                    backgroundColor: 'rgba(102,126,234,0.7)',
+                    borderRadius: 6
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+        });
+
+        new Chart(document.getElementById('gelirGrafik'), {
+            type: 'line',
+            data: {
+                labels: grafikEtiketler,
+                datasets: [{
+                    label: '₺ Gelir',
+                    data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.GelirDegerleri)),
+                    borderColor: '#11998e',
+                    backgroundColor: 'rgba(17,153,142,0.12)',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#11998e',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } } }
+        });
+        </text>
+    }
+    @if (Model.RestoranGrafikEtiketler.Any())
+    {
+        <text>
+        new Chart(document.getElementById('restoranGrafik'), {
+            type: 'bar',
+            data: {
+                labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.RestoranGrafikEtiketler)),
+                datasets: [{
+                    label: 'Sipariş Sayısı',
+                    data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.RestoranGrafikDegerler)),
+                    backgroundColor: ['rgba(102,126,234,0.7)','rgba(240,147,251,0.7)','rgba(79,172,254,0.7)','rgba(17,153,142,0.7)','rgba(245,87,108,0.7)','rgba(248,187,69,0.7)'],
+                    borderRadius: 8
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                plugins: { legend: { display: false } },
+                scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+        });
+        </text>
+    }
+    @if (Model.NlpTrendDegerler.Any(d => d != 0))
+    {
+        <text>
+        new Chart(document.getElementById('nlpTrendGrafik'), {
+            type: 'line',
+            data: {
+                labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.NlpTrendEtiketler)),
+                datasets: [{
+                    label: 'Ort. Duygu Skoru',
+                    data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.NlpTrendDegerler)),
+                    borderColor: '#764ba2',
+                    backgroundColor: 'rgba(118,75,162,0.1)',
+                    borderWidth: 2.5,
+                    pointBackgroundColor: function(ctx) {
+                        var v = ctx.dataset.data[ctx.dataIndex];
+                        return v >= 0.05 ? '#10b981' : v <= -0.05 ? '#ef4444' : '#94a3b8';
+                    },
+                    pointRadius: 4,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false },
+                    tooltip: { callbacks: { label: ctx => 'Skor: ' + ctx.raw } }
+                },
+                scales: {
+                    y: { min: -1, max: 1,
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                        ticks: { callback: v => v > 0 ? '+'+v : v }
+                    },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+        </text>
+    }
+
+    function showTab(id, btn) {
+        ['siparisTab','restoranTab','personelTab','kullaniciTab','yoneticiTab','kuryeHaritaTab'].forEach(t => {
+            document.getElementById(t).style.display = 'none';
+        });
+        document.getElementById(id).style.display = 'block';
+        document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
+        if (btn) {
+            btn.classList.add('active');
+        } else {
+            const tabBtnMap = {
+                'siparisTab': 0, 'restoranTab': 1, 'personelTab': 2,
+                'kullaniciTab': 3, 'yoneticiTab': 4, 'kuryeHaritaTab': 5
+            };
+            const btns = document.querySelectorAll('.admin-tab-btn');
+            if (btns[tabBtnMap[id]]) btns[tabBtnMap[id]].classList.add('active');
+        }
+    }
+
+    const hashToTab = {
+        '#siparisler': 'siparisTab',
+        '#restoranlar': 'restoranTab',
+        '#personeller': 'personelTab',
+        '#kullanicilar': 'kullaniciTab',
+        '#yoneticiler': 'yoneticiTab',
+        '#harita': 'kuryeHaritaTab'
+    };
+
+    function activateFromHash() {
+        const tab = hashToTab[window.location.hash];
+        if (tab) {
+            showTab(tab, null);
+            if (tab === 'kuryeHaritaTab') setTimeout(kuryeHaritaBaslat, 100);
+        }
+    }
+
+    window.addEventListener('hashchange', activateFromHash);
+    activateFromHash();
+
+    // Kurye Haritası
+    const kuryelerData = [
+        @foreach (var p in Model.Personeller.Where(p => p.AnlikEnlem != null))
+        {
+            <text>{ id: @p.PersonelId, ad: "@p.Adi", enlem: @p.AnlikEnlem!.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture), boylam: @(p.AnlikBoylam?.ToString("F6", System.Globalization.CultureInfo.InvariantCulture) ?? "0"), aktif: @(p.MusaitlikDurumu ? "true" : "false") },</text>
+        }
+    ];
+
+    let kuryeHaritaObj = null;
+    let kuryeHaritaBasladi = false;
+
+    function kuryeHaritaBaslat() {
+        if (kuryeHaritaBasladi) {
+            if (kuryeHaritaObj) setTimeout(() => kuryeHaritaObj.invalidateSize(), 50);
+            return;
+        }
+        kuryeHaritaBasladi = true;
+
+        const merkez = kuryelerData.length > 0
+            ? [kuryelerData[0].enlem, kuryelerData[0].boylam]
+            : [41.0082, 28.9784];
+
+        kuryeHaritaObj = L.map('kuryeHarita').setView(merkez, 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(kuryeHaritaObj);
+        setTimeout(() => kuryeHaritaObj.invalidateSize(), 200);
+
+        kuryelerData.forEach((k, i) => {
+            const icon = L.divIcon({
+                html: `<div style="background:${k.aktif ? '#11998e' : '#adb5bd'};color:white;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">🛵</div>`,
+                className: '', iconSize: [38,38], iconAnchor: [19,19]
+            });
+            L.marker([k.enlem, k.boylam], { icon })
+                .addTo(kuryeHaritaObj)
+                .bindPopup(`<b>${k.ad}</b><br><span class='badge ${k.aktif ? "bg-success" : "bg-secondary"}'>${k.aktif ? "Aktif" : "Pasif"}</span>`);
+        });
+
+        if (kuryelerData.length > 1) {
+            const bounds = kuryelerData.map(k => [k.enlem, k.boylam]);
+            kuryeHaritaObj.fitBounds(bounds, { padding: [50,50] });
+        }
+    }
+
+    function kuryeHaritaYenile() {
+        location.reload();
+    }
+
+    document.querySelectorAll('select[data-current]').forEach(sel => {
+        sel.value = sel.dataset.current;
+    });
+
+    function syncRestoran(id) {
+        document.querySelector('.js-r-name[data-id="' + id + '"]').value = document.getElementById('rName_' + id).value;
+        document.querySelector('.js-r-adres[data-id="' + id + '"]').value = document.getElementById('rAdres_' + id).value;
+        document.querySelector('.js-r-tel[data-id="' + id + '"]').value = document.getElementById('rTel_' + id).value;
+        document.querySelector('.js-r-email[data-id="' + id + '"]').value = document.getElementById('rEmail_' + id).value;
+    }
+
+    function syncPersonel(id) {
+        document.querySelector('.js-p-adi[data-id="' + id + '"]').value = document.getElementById('pAdi_' + id).value;
+        document.querySelector('.js-p-tel[data-id="' + id + '"]').value = document.getElementById('pTel_' + id).value;
+        document.querySelector('.js-p-alani[data-id="' + id + '"]').value = document.getElementById('pAlani_' + id).value;
+    }
+</script>

@@ -1,0 +1,560 @@
+@inject SiparisUygulama.Models.SiparisDbContext _layoutDb
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] — Yemek Sipariş</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --orange: #FF6B35;
+            --orange-hover: #e85c28;
+            --dark: #1a1f2e;
+            --nav-h: 64px;
+        }
+        * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+
+        /* Sayfa geçiş animasyonu */
+        @@keyframes pageFadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .page-content { animation: pageFadeIn 0.3s ease-out; }
+
+        /* Skeleton loading */
+        .skeleton {
+            background: linear-gradient(90deg, #f0e6df 25%, #ffe3d5 50%, #f0e6df 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+            border-radius: 8px;
+        }
+        @@keyframes shimmer {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .skeleton-card { height: 220px; border-radius: 14px; margin-bottom: 1rem; }
+        .skeleton-line { height: 14px; margin-bottom: 8px; }
+        .skeleton-line.short { width: 60%; }
+
+        /* Kart hover genel */
+        .card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important; }
+
+        body {
+            background-color: #FFF8F5;
+            background-image: radial-gradient(circle, #FFD8C4 1px, transparent 1px);
+            background-size: 28px 28px;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        /* ── TOP NAV ── */
+        .top-nav {
+            background: #fff;
+            border-bottom: 1px solid rgba(0,0,0,0.07);
+            padding: 0 1.5rem;
+            height: var(--nav-h);
+            display: flex;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+
+        /* Brand */
+        .nav-brand {
+            font-weight: 800;
+            font-size: 1.15rem;
+            background: linear-gradient(135deg, var(--orange) 0%, #e83e8c 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .nav-brand-emoji { -webkit-text-fill-color: initial; font-size: 1.3rem; }
+
+        /* Nav pills */
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: 2rem;
+        }
+        .nav-link-item {
+            padding: 7px 15px;
+            border-radius: 50px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #555;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            transition: background 0.18s, color 0.18s;
+            white-space: nowrap;
+        }
+        .nav-link-item:hover {
+            background: #fff3ef;
+            color: var(--orange);
+        }
+        .nav-link-item.active {
+            background: var(--orange);
+            color: #fff !important;
+            font-weight: 600;
+        }
+        .nav-link-item.active:hover { background: var(--orange-hover); }
+
+        /* Right side */
+        .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+        /* User avatar */
+        .user-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--orange), #e83e8c);
+            color: white;
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 8px rgba(255,107,53,0.35);
+            transition: box-shadow 0.15s;
+        }
+        .user-avatar:hover { box-shadow: 0 4px 16px rgba(255,107,53,0.45); }
+
+        /* Dropdown */
+        .user-dropdown {
+            position: absolute;
+            top: calc(100% + 12px);
+            right: 0;
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.14);
+            min-width: 190px;
+            padding: 8px;
+            display: none;
+            z-index: 2000;
+            border: 1px solid rgba(0,0,0,0.06);
+        }
+        .user-dropdown.show { display: block; }
+        .user-dropdown .dd-header {
+            padding: 8px 12px 10px;
+            border-bottom: 1px solid #f0f0f0;
+            margin-bottom: 4px;
+        }
+        .user-dropdown .dd-name { font-size: 0.88rem; font-weight: 700; color: var(--dark); }
+        .user-dropdown .dd-role { font-size: 0.73rem; color: #aaa; }
+        .user-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            color: #444;
+            transition: background 0.14s;
+        }
+        .user-dropdown a:hover { background: #fff3ef; color: var(--orange); }
+        .user-dropdown a i { width: 16px; text-align: center; }
+        .user-dropdown .divider { height: 1px; background: #f0f0f0; margin: 4px 0; }
+        .user-dropdown .logout { color: #dc3545 !important; }
+        .user-dropdown .logout:hover { background: #fff5f5 !important; color: #dc3545 !important; }
+
+        /* Hamburger */
+        .hamburger-btn {
+            display: none;
+            background: none;
+            border: 1px solid #e9ecef;
+            font-size: 1.1rem;
+            color: #555;
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 10px;
+            transition: background 0.15s;
+        }
+        .hamburger-btn:hover { background: #fff3ef; color: var(--orange); border-color: #ffd4c4; }
+
+        /* Mobile menu */
+        .mobile-menu {
+            display: none;
+            position: fixed;
+            top: var(--nav-h);
+            left: 0;
+            right: 0;
+            background: white;
+            border-bottom: 1px solid #e9ecef;
+            padding: 12px;
+            z-index: 999;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.09);
+        }
+        .mobile-menu.show { display: flex; flex-direction: column; gap: 4px; }
+        .mobile-menu .nav-link-item {
+            border-radius: 10px;
+            font-size: 0.9rem;
+            padding: 10px 14px;
+        }
+        .mobile-menu .mobile-divider { height: 1px; background: #f0f0f0; margin: 4px 0; }
+
+        /* Page content */
+        .page-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        @@media (max-width: 768px) {
+            .nav-links { display: none; }
+            .hamburger-btn { display: flex; align-items: center; justify-content: center; }
+            .page-content { padding: 1rem 0.75rem; }
+            .hero-banner { padding: 1.5rem 1rem !important; border-radius: 14px !important; }
+            .hero-floats { display: none !important; }
+            .hero-title { font-size: 1.3rem !important; }
+            .hero-search { max-width: 100% !important; }
+            .oneri-card { flex: 0 0 160px !important; }
+            .quick-grid { grid-template-columns: repeat(2, 1fr) !important; }
+            .row.g-3 .col-md-4 { flex: 0 0 50%; max-width: 50%; }
+            .col-lg-7, .col-lg-5 { flex: 0 0 100%; max-width: 100%; }
+        }
+        @@media (max-width: 480px) {
+            .row.g-3 .col-md-4, .row.g-3 .col-sm-6 { flex: 0 0 100%; max-width: 100%; }
+        }
+
+        /* Boş durum illustrasyonları */
+        .empty-state {
+            text-align: center; padding: 3rem 1rem;
+        }
+        .empty-state .empty-emoji {
+            font-size: 4rem; margin-bottom: 1rem;
+            animation: floatBob 3s ease-in-out infinite alternate;
+        }
+        @@keyframes floatBob {
+            from { transform: translateY(0px); }
+            to { transform: translateY(-10px); }
+        }
+        .empty-state h5 { font-weight: 700; color: #1a1f2e; margin-bottom: 0.4rem; }
+        .empty-state p { color: #6c757d; font-size: 0.88rem; }
+    </style>
+</head>
+<body>
+@{
+    var rol = Context.Session.GetString("Rol");
+    var kullaniciAdi = Context.Session.GetString("KullaniciAdi") ?? "";
+    var currentPath = Context.Request.Path.ToString().ToLower();
+    string? sessionAvatar = null;
+    if (rol == "Musteri") {
+        int uid = Context.Session.GetInt32("KullaniciID") ?? 0;
+        if (uid > 0) sessionAvatar = _layoutDb.Kullanicis.Where(k => k.KullaniciId == uid).Select(k => k.Avatar).FirstOrDefault();
+    }
+}
+
+@if (rol != null)
+{
+    <nav class="top-nav">
+        <a class="nav-brand" href="/Home/Index">
+            <span class="nav-brand-emoji">🍽️</span>
+            <span>Yemek Sipariş</span>
+        </a>
+
+        <div class="nav-links">
+            @if (rol == "Musteri")
+            {
+                <a class="nav-link-item @(currentPath == "/home/index" || currentPath == "/" ? "active" : "")" href="/Home/Index">
+                    <i class="fas fa-home"></i> Ana Sayfa
+                </a>
+                <a class="nav-link-item @(currentPath.Contains("/restoran") ? "active" : "")" href="/Restoran/Index">
+                    <i class="fas fa-utensils"></i> Restoranlar
+                </a>
+                <a class="nav-link-item @(currentPath.Contains("/siparis") ? "active" : "")" href="/Siparis/Siparislerim">
+                    <i class="fas fa-box"></i> Siparişlerim
+                </a>
+                <a class="nav-link-item @(currentPath.Contains("/favori") ? "active" : "")" href="/Favori/Favorilerim">
+                    <i class="fas fa-heart"></i> Favorilerim
+                </a>
+            }
+            @if (rol == "Admin")
+            {
+                <a class="nav-link-item @(currentPath.Contains("/admin") ? "active" : "")" href="/Admin/Index">
+                    <i class="fas fa-cog"></i> Admin Paneli
+                </a>
+            }
+            @if (rol == "Restoran")
+            {
+                <a class="nav-link-item @(currentPath.Contains("/restoranyonetim") && !currentPath.Contains("siparis") ? "active" : "")" href="/RestoranYonetim/Index">
+                    <i class="fas fa-utensils"></i> Menü Yönetimi
+                </a>
+                <a class="nav-link-item @(currentPath.Contains("siparis") ? "active" : "")" href="/RestoranYonetim/Siparisler">
+                    <i class="fas fa-receipt"></i> Gelen Siparişler
+                </a>
+            }
+            @if (rol == "Personel")
+            {
+                <a class="nav-link-item @(currentPath.Contains("bekleyen") ? "active" : "")" href="/Personel/BekleyenTeslimatlar">
+                    <i class="fas fa-motorcycle"></i> Bekleyen Teslimatlar
+                </a>
+                <a class="nav-link-item @(currentPath.Contains("teslimatlarim") ? "active" : "")" href="/Personel/Teslimatlarim">
+                    <i class="fas fa-list"></i> Teslimatlarım
+                </a>
+            }
+        </div>
+
+        <div class="nav-right">
+            <button class="hamburger-btn" onclick="toggleMobileMenu()" id="hamburgerBtn">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div style="position:relative;">
+                <div class="user-avatar" onclick="toggleUserDropdown()" title="@kullaniciAdi" id="navAvatar">
+                    @if (!string.IsNullOrEmpty(sessionAvatar) && sessionAvatar.StartsWith("http"))
+                    {
+                        <img src="@sessionAvatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />
+                    }
+                    else
+                    {
+                        @kullaniciAdi.Substring(0, 1).ToUpper()
+                    }
+                </div>
+                <div class="user-dropdown" id="userDropdown">
+                    <div class="dd-header">
+                        <div class="dd-name">@kullaniciAdi</div>
+                        <div class="dd-role">@(rol == "Musteri" ? "Müşteri" : rol == "Admin" ? "Yönetici" : rol == "Personel" ? "Kurye" : "Restoran")</div>
+                    </div>
+                    <a href="/Profil/Index"><i class="fas fa-user"></i>Profilim</a>
+                    @if (rol == "Musteri")
+                    {
+                        <a href="/Siparis/Siparislerim"><i class="fas fa-box"></i>Siparişlerim</a>
+                    }
+                    <div class="divider"></div>
+                    <a href="/Giris/Cikis" class="logout"><i class="fas fa-sign-out-alt"></i>Çıkış Yap</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobil Menü -->
+    <div class="mobile-menu" id="mobileMenu">
+        @if (rol == "Musteri")
+        {
+            <a class="nav-link-item" href="/Home/Index"><i class="fas fa-home"></i> Ana Sayfa</a>
+            <a class="nav-link-item" href="/Restoran/Index"><i class="fas fa-utensils"></i> Restoranlar</a>
+            <a class="nav-link-item" href="/Siparis/Siparislerim"><i class="fas fa-box"></i> Siparişlerim</a>
+            <a class="nav-link-item" href="/Favori/Favorilerim"><i class="fas fa-heart"></i> Favorilerim</a>
+        }
+        @if (rol == "Admin")
+        {
+            <a class="nav-link-item" href="/Admin/Index"><i class="fas fa-cog"></i> Admin Paneli</a>
+        }
+        @if (rol == "Restoran")
+        {
+            <a class="nav-link-item" href="/RestoranYonetim/Index"><i class="fas fa-utensils"></i> Menü Yönetimi</a>
+            <a class="nav-link-item" href="/RestoranYonetim/Siparisler"><i class="fas fa-receipt"></i> Gelen Siparişler</a>
+        }
+        @if (rol == "Personel")
+        {
+            <a class="nav-link-item" href="/Personel/BekleyenTeslimatlar"><i class="fas fa-motorcycle"></i> Bekleyen Teslimatlar</a>
+            <a class="nav-link-item" href="/Personel/Teslimatlarim"><i class="fas fa-list"></i> Teslimatlarım</a>
+        }
+        <div class="mobile-divider"></div>
+        <a class="nav-link-item" href="/Profil/Index"><i class="fas fa-user"></i> Profilim</a>
+        <a class="nav-link-item" href="/Giris/Cikis" style="color:#dc3545;"><i class="fas fa-sign-out-alt"></i> Çıkış</a>
+    </div>
+}
+
+<div class="page-content">
+    @RenderBody()
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function toggleUserDropdown() {
+        document.getElementById('userDropdown').classList.toggle('show');
+    }
+    function toggleMobileMenu() {
+        document.getElementById('mobileMenu').classList.toggle('show');
+    }
+    document.addEventListener('click', function(e) {
+        const dropdown = document.getElementById('userDropdown');
+        if (dropdown && !e.target.closest('.user-avatar') && !e.target.closest('#userDropdown'))
+            dropdown.classList.remove('show');
+        const mobileMenu = document.getElementById('mobileMenu');
+        if (mobileMenu && !e.target.closest('#mobileMenu') && !e.target.closest('#hamburgerBtn'))
+            mobileMenu.classList.remove('show');
+    });
+</script>
+@await RenderSectionAsync("Scripts", required: false)
+
+@if (rol != null)
+{
+<!-- Chatbot Widget -->
+<style>
+    .chat-fab { position:fixed; bottom:1.5rem; right:1.5rem; z-index:9999; }
+    .chat-btn {
+        width:56px; height:56px; border-radius:50%; border:none; cursor:pointer;
+        background:linear-gradient(135deg,#FF6B35,#e83e8c);
+        color:white; font-size:1.4rem; box-shadow:0 4px 16px rgba(255,107,53,0.45);
+        transition:transform 0.2s, box-shadow 0.2s; position:relative;
+        display:flex; align-items:center; justify-content:center;
+    }
+    .chat-btn:hover { transform:scale(1.08); box-shadow:0 6px 24px rgba(255,107,53,0.55); }
+    .chat-badge { position:absolute; top:-4px; right:-4px; background:#e74c3c; color:white; border-radius:50%; width:18px; height:18px; font-size:0.65rem; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid white; }
+    .chat-panel {
+        position:fixed; bottom:5rem; right:1.5rem; z-index:9998;
+        width:360px; max-height:560px;
+        background:white; border-radius:20px;
+        box-shadow:0 8px 48px rgba(0,0,0,0.2);
+        display:flex; flex-direction:column;
+        overflow:hidden;
+        transition:opacity 0.2s, transform 0.2s;
+    }
+    .chat-panel.hidden { opacity:0; pointer-events:none; transform:translateY(14px); }
+    .chat-header {
+        background:linear-gradient(135deg,#FF6B35,#e83e8c);
+        color:white; padding:14px 16px;
+        display:flex; align-items:center; gap:10px;
+    }
+    .chat-status { width:8px; height:8px; background:#4ade80; border-radius:50%; border:1px solid rgba(255,255,255,0.6); flex-shrink:0; }
+    .chat-messages { flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:8px; min-height:200px; max-height:330px; }
+    .msg { max-width:88%; padding:9px 13px; border-radius:16px; font-size:0.84rem; line-height:1.5; word-break:break-word; }
+    .msg.bot { background:#fff3ef; color:#333; align-self:flex-start; border-bottom-left-radius:4px; }
+    .msg.user { background:linear-gradient(135deg,#FF6B35,#e83e8c); color:white; align-self:flex-end; border-bottom-right-radius:4px; }
+    .msg.typing { background:#fff3ef; align-self:flex-start; padding:12px 16px; }
+    .typing-dots { display:flex; gap:4px; align-items:center; }
+    .typing-dots span { width:7px; height:7px; background:#aaa; border-radius:50%; animation:typingBounce 1.2s infinite; }
+    .typing-dots span:nth-child(2) { animation-delay:0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay:0.4s; }
+    @@keyframes typingBounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+    .chat-quick { display:flex; gap:6px; padding:8px 12px 4px; overflow-x:auto; scrollbar-width:none; }
+    .chat-quick::-webkit-scrollbar { display:none; }
+    .chip { background:#fff3ef; border:1px solid #ffd4c4; border-radius:20px; padding:5px 11px; font-size:0.75rem; color:#FF6B35; cursor:pointer; white-space:nowrap; transition:all 0.15s; flex-shrink:0; }
+    .chip:hover { background:#FF6B35; color:white; border-color:#FF6B35; }
+    .chat-input-row { display:flex; gap:8px; padding:10px 12px; border-top:1px solid #f0f0f0; }
+    .chat-input { flex:1; border:1.5px solid #e9ecef; border-radius:22px; padding:8px 14px; font-size:0.84rem; outline:none; transition:border-color 0.15s; }
+    .chat-input:focus { border-color:#FF6B35; }
+    .chat-send { background:linear-gradient(135deg,#FF6B35,#e83e8c); color:white; border:none; border-radius:50%; width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:opacity 0.15s; }
+    .chat-send:hover { opacity:0.85; }
+    @@media(max-width:420px){ .chat-panel{width:calc(100vw - 2rem); right:1rem;} }
+</style>
+
+<div class="chat-fab">
+    <div id="chatPanel" class="chat-panel hidden">
+        <div class="chat-header">
+            <span style="font-size:1.3rem;">🤖</span>
+            <div style="flex:1;">
+                <div style="font-weight:700;font-size:0.95rem;">Yemek Asistanı</div>
+                <div style="font-size:0.72rem;opacity:0.85;">Sipariş ve öneri için buradayım</div>
+            </div>
+            <div class="chat-status"></div>
+            <button onclick="chatKapat()" style="margin-left:8px;background:none;border:none;color:white;font-size:1.1rem;cursor:pointer;opacity:0.8;padding:0 4px;">✕</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="msg bot">Merhaba! 👋 Yemek önerisi, sipariş durumu veya menü hakkında yardımcı olabilirim.</div>
+        </div>
+        <div class="chat-quick" id="chatQuick">
+            <span class="chip" onclick="chipGonder(this, 'Bugün ne yemeli yim?')">🍽️ Öneri</span>
+            <span class="chip" onclick="chipGonder(this, 'Ucuz ve doyurucu ne var?')">💰 Ekonomik</span>
+            <span class="chip" onclick="chipGonder(this, 'Son siparişlerim')">📦 Siparişlerim</span>
+            <span class="chip" onclick="chipGonder(this, 'Vegan seçenekler var mı?')">🥗 Vegan</span>
+            <span class="chip" onclick="chipGonder(this, 'En popüler yemekler hangileri?')">⭐ Popüler</span>
+        </div>
+        <div class="chat-input-row">
+            <input id="chatInput" class="chat-input" placeholder="Mesaj yazın..." onkeydown="if(event.key==='Enter') chatGonder()" />
+            <button class="chat-send" onclick="chatGonder()"><i class="fas fa-paper-plane" style="font-size:0.8rem;"></i></button>
+        </div>
+    </div>
+    <button class="chat-btn" onclick="chatToggle()" id="chatFabBtn" title="Yemek Asistanı">
+        <i class="fas fa-robot"></i>
+        <span class="chat-badge" id="chatBadge" style="display:none;">1</span>
+    </button>
+</div>
+
+<script>
+    var chatGecmisi = [];
+    var chatPanelAcik = false;
+
+    function chatToggle() {
+        const panel = document.getElementById('chatPanel');
+        chatPanelAcik = !chatPanelAcik;
+        panel.classList.toggle('hidden', !chatPanelAcik);
+        if (chatPanelAcik) {
+            document.getElementById('chatInput').focus();
+            document.getElementById('chatBadge').style.display = 'none';
+        }
+    }
+    function chatKapat() {
+        chatPanelAcik = false;
+        document.getElementById('chatPanel').classList.add('hidden');
+    }
+
+    function chatMesajEkle(mesaj, tip) {
+        const container = document.getElementById('chatMessages');
+        const div = document.createElement('div');
+        div.className = 'msg ' + tip;
+        if (tip === 'typing') {
+            div.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+        } else {
+            div.innerHTML = mesaj
+                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#0d9488;font-weight:600;text-decoration:underline;">$1</a>')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
+        }
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return div;
+    }
+
+    function chatGonder() {
+        const input = document.getElementById('chatInput');
+        const mesaj = input.value.trim();
+        if (!mesaj) return;
+        input.value = '';
+        document.getElementById('chatQuick').style.display = 'none';
+        chatMesajEkle(mesaj, 'user');
+        const typing = chatMesajEkle('', 'typing');
+
+        fetch('/Chatbot/Mesaj', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mesaj, gecmis: chatGecmisi.slice(-8) })
+        })
+        .then(r => r.json())
+        .then(data => {
+            typing.remove();
+            const cevap = data.cevap || 'Bir sorun oluştu.';
+            chatGecmisi.push({ rol: 'user', icerik: mesaj });
+            chatGecmisi.push({ rol: 'bot', icerik: cevap });
+            chatMesajEkle(cevap, 'bot');
+            if (!chatPanelAcik) {
+                document.getElementById('chatBadge').style.display = 'flex';
+            }
+        })
+        .catch(() => {
+            typing.remove();
+            chatMesajEkle('Bağlantı hatası. Lütfen tekrar deneyin.', 'bot');
+        });
+    }
+
+    function chipGonder(el, mesaj) {
+        el.style.display = 'none';
+        document.getElementById('chatInput').value = mesaj;
+        chatGonder();
+    }
+</script>
+}
+</body>
+</html>

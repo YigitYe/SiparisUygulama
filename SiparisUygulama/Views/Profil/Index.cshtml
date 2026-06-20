@@ -1,0 +1,258 @@
+@model SiparisUygulama.Models.Kullanici
+@{
+    ViewData["Title"] = "Profilim";
+    var rol = ViewBag.Rol as string;
+}
+
+<style>
+    .profil-card { border: none; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 1.5rem; }
+    .profil-card .card-header { background: #f8f9fa; border-bottom: 1px solid #e9ecef; border-radius: 16px 16px 0 0 !important; padding: 1rem 1.5rem; font-weight: 600; font-size: 0.95rem; }
+    .form-control, .form-select { border-radius: 10px; border: 1.5px solid #e9ecef; font-size: 0.9rem; padding: 10px 14px; }
+    .form-control:focus { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.15); }
+    .form-label { font-weight: 500; font-size: 0.85rem; color: #495057; }
+    .btn-save { background: linear-gradient(135deg, #667eea, #764ba2); border: none; border-radius: 10px; font-weight: 600; }
+    .avatar-circle { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg,#667eea,#764ba2); display: flex; align-items: center; justify-content: center; font-size: 2rem; color: white; font-weight: 700; overflow: hidden; }
+    .kart-mock { border: 2px dashed #e9ecef; border-radius: 16px; padding: 2rem; text-align: center; }
+    .avatar-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 12px; }
+    .avatar-option { width: 56px; height: 56px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: all 0.15s; overflow: hidden; }
+    .avatar-option img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar-option:hover { transform: scale(1.1); border-color: #667eea; }
+    .avatar-option.selected { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.25); transform: scale(1.1); }
+</style>
+
+@if (TempData["Mesaj"] != null)
+{
+    <div class="alert alert-success rounded-3 mb-4 py-2 px-3" style="font-size:0.88rem;">
+        <i class="fas fa-check-circle me-2"></i>@TempData["Mesaj"]
+    </div>
+}
+@if (TempData["Hata"] != null)
+{
+    <div class="alert alert-danger rounded-3 mb-4 py-2 px-3" style="font-size:0.88rem;">
+        <i class="fas fa-exclamation-circle me-2"></i>@TempData["Hata"]
+    </div>
+}
+
+<!-- Profil Başlığı -->
+<div class="d-flex align-items-center gap-4 mb-4">
+    <div class="avatar-circle" id="profilAvatar">
+        @if (!string.IsNullOrEmpty(Model.Avatar) && Model.Avatar.StartsWith("http"))
+        {
+            <img src="@Model.Avatar" style="width:100%;height:100%;object-fit:cover;" />
+        }
+        else
+        {
+            @Model.KullaniciAdi[0].ToString().ToUpper()
+        }
+    </div>
+    <div>
+        <h4 class="fw-bold mb-1">@Model.KullaniciAdi</h4>
+        <span class="badge rounded-pill px-3 py-2" style="background:linear-gradient(135deg,#667eea,#764ba2); color:white; font-size:0.8rem;">
+            @rol
+        </span>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-7">
+
+        @* Profil Bilgileri - sadece müşteri *@
+        @if (rol == "Musteri")
+        {
+            <div class="profil-card card">
+                <div class="card-header"><i class="fas fa-user me-2 text-primary"></i>Profil Bilgileri</div>
+                <div class="card-body p-4">
+                    <form asp-action="ProfilGuncelle" method="post">
+                        <div class="mb-3">
+                            <label class="form-label">Kullanıcı Adı</label>
+                            <input type="text" class="form-control" value="@Model.KullaniciAdi" disabled />
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label class="form-label">E-posta</label>
+                                <input type="email" name="email" class="form-control" value="@Model.Email" placeholder="ornek@mail.com" />
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Telefon</label>
+                                <input type="text" name="telefon" class="form-control" value="@Model.Telefon" placeholder="05xx xxx xx xx" />
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label">Varsayılan Teslimat Adresi</label>
+                            <textarea name="teslimatAdresi" class="form-control" rows="2" placeholder="Mahalle, sokak, no...">@Model.TeslimatAdresi</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-save btn-primary px-4">
+                            <i class="fas fa-save me-2"></i>Kaydet
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+
+        @* Şifre Değiştir *@
+        <div class="profil-card card">
+            <div class="card-header"><i class="fas fa-lock me-2 text-warning"></i>Şifre Değiştir</div>
+            <div class="card-body p-4">
+                <form asp-action="SifreDegistir" method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Mevcut Şifre</label>
+                        <input type="password" name="mevcutSifre" class="form-control" required />
+                    </div>
+                    <div class="row g-3 mb-4">
+                        <div class="col-6">
+                            <label class="form-label">Yeni Şifre</label>
+                            <input type="password" name="yeniSifre" class="form-control" required minlength="6" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Tekrar</label>
+                            <input type="password" name="yeniSifreTekrar" class="form-control" required minlength="6" />
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-warning px-4 rounded-3 fw-semibold">
+                        <i class="fas fa-key me-2"></i>Şifreyi Güncelle
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="col-md-5">
+
+        @* Avatar Seçici *@
+        <div class="profil-card card mb-3">
+            <div class="card-header"><i class="fas fa-smile me-2 text-primary"></i>Avatar Seç</div>
+            <div class="card-body p-4">
+                @{
+                    var avatarlar = new[]
+                    {
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=Liam&backgroundColor=b6e3f4",
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=Emma&backgroundColor=ffdfbf",
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=Noah&backgroundColor=c0aede",
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=Olivia&backgroundColor=d1d4f9",
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=James&backgroundColor=b6e3f4",
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=Sophia&backgroundColor=ffd5dc",
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=Oliver&backgroundColor=c1f4c5",
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=Ava&backgroundColor=ffdfbf",
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=Elijah&backgroundColor=c0aede",
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=Isabella&backgroundColor=ffd5dc",
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=William&backgroundColor=b6e3f4",
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=Mia&backgroundColor=c1f4c5",
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=Lucas&backgroundColor=d1d4f9",
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=Charlotte&backgroundColor=ffdfbf",
+                        "https://api.dicebear.com/8.x/avataaars/svg?seed=Mason&backgroundColor=ffd5dc",
+                    };
+                }
+                <div class="avatar-grid" id="avatarGrid">
+                    @foreach (var av in avatarlar)
+                    {
+                        <div class="avatar-option @(Model.Avatar == av ? "selected" : "")"
+                             onclick="avatarSec(this, '@av')">
+                            <img src="@av" alt="avatar" />
+                        </div>
+                    }
+                </div>
+                <div class="mt-3 text-muted small" id="avatarDurum" style="display:none;">
+                    <i class="fas fa-check-circle text-success me-1"></i>Avatar kaydedildi!
+                </div>
+            </div>
+        </div>
+
+        @* Konum - sadece müşteri *@
+        @if (rol == "Musteri")
+        {
+            <div class="profil-card card">
+                <div class="card-header"><i class="fas fa-map-marker-alt me-2 text-danger"></i>Konumum</div>
+                <div class="card-body p-4">
+                    @if (Model.VarsayilanEnlem.HasValue && Model.VarsayilanBoylam.HasValue)
+                    {
+                        <div class="alert alert-success py-2 rounded-3 mb-3" style="font-size:0.85rem;">
+                            <i class="fas fa-check-circle me-1"></i>
+                            Konum kayıtlı: @Model.VarsayilanEnlem?.ToString("F4"), @Model.VarsayilanBoylam?.ToString("F4")
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted small mb-3">Konum kaydedilmemiş. Otomatik tespit veya manuel giriş yapabilirsiniz.</p>
+                    }
+                    <form asp-action="KonumGuncelle" method="post">
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label">Enlem</label>
+                                <input type="number" name="enlem" class="form-control" step="0.000001"
+                                    value="@Model.VarsayilanEnlem" placeholder="41.0082" id="enlemInput" />
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Boylam</label>
+                                <input type="number" name="boylam" class="form-control" step="0.000001"
+                                    value="@Model.VarsayilanBoylam" placeholder="28.9784" id="boylamInput" />
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-3 flex-grow-1"
+                                onclick="konumAl()">
+                                <i class="fas fa-crosshairs me-1"></i>Otomatik Al
+                            </button>
+                            <button type="submit" class="btn btn-danger btn-sm rounded-3 flex-grow-1">
+                                <i class="fas fa-save me-1"></i>Kaydet
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+
+        @* Kart Bilgileri *@
+        @if (rol == "Musteri")
+        {
+            <div class="profil-card card">
+                <div class="card-header"><i class="fas fa-credit-card me-2 text-success"></i>Ödeme Yöntemi</div>
+                <div class="card-body p-4">
+                    <div class="kart-mock">
+                        <div style="font-size:2.5rem;" class="mb-2">💳</div>
+                        <div class="fw-semibold mb-1">Kayıtlı kart yok</div>
+                        <div class="text-muted small mb-3">Ödeme entegrasyonu yakında aktif olacak.</div>
+                        <span class="badge bg-warning text-dark px-3 py-2 rounded-pill">Yakında</span>
+                    </div>
+                </div>
+            </div>
+        }
+
+    </div>
+</div>
+
+<script>
+    function konumAl() {
+        if (!navigator.geolocation) {
+            alert("Tarayıcınız konum desteklemiyor.");
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            document.getElementById('enlemInput').value = pos.coords.latitude.toFixed(6);
+            document.getElementById('boylamInput').value = pos.coords.longitude.toFixed(6);
+        }, function() {
+            alert("Konum alınamadı. Lütfen manuel girin.");
+        });
+    }
+
+    function avatarSec(el, avatar) {
+        document.querySelectorAll('.avatar-option').forEach(a => a.classList.remove('selected'));
+        el.classList.add('selected');
+
+        const profilAvatar = document.getElementById('profilAvatar');
+        profilAvatar.innerHTML = `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;" />`;
+
+        const navAvatar = document.getElementById('navAvatar');
+        if (navAvatar) navAvatar.innerHTML = `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
+
+        fetch('/Profil/AvatarGuncelle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(avatar)
+        }).then(() => {
+            const durum = document.getElementById('avatarDurum');
+            durum.style.display = 'block';
+            setTimeout(() => durum.style.display = 'none', 2000);
+        });
+    }
+</script>

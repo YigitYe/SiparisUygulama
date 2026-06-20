@@ -1,0 +1,352 @@
+@model List<SiparisUygulama.Models.Restoran>
+
+@{
+    ViewData["Title"] = "Restoranlar";
+    var oneriler = ViewBag.Oneriler as List<SiparisUygulama.Services.AiServiceClient.OneriItem>;
+    var oneriKaynak = ViewBag.OneriKaynak as string;
+    var puanlar = ViewBag.RestoranPuanlari as Dictionary<int, (double Ort, int Sayi)> ?? new();
+    var favoriler = ViewBag.Favoriler as HashSet<int> ?? new HashSet<int>();
+}
+
+<style>
+    .restoran-card { border: none; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); transition: transform 0.2s, box-shadow 0.2s; }
+    .restoran-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    .mutfak-badge { font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; }
+    .oneri-chip { display: inline-block; background: rgba(255,255,255,0.2); border-radius: 12px; padding: 8px 14px; text-decoration: none; transition: background 0.2s; }
+    .oneri-chip:hover { background: rgba(255,255,255,0.35); }
+    .restoran-img { width: 100%; height: 140px; object-fit: cover; border-radius: 10px 10px 0 0; background: #f1f3f5; }
+    .restoran-img-placeholder { width: 100%; height: 140px; background: linear-gradient(135deg,#f1f3f5,#e9ecef); border-radius: 10px 10px 0 0; display: flex; align-items: center; justify-content: center; font-size: 3rem; }
+    .star-filled { color: #f59e0b; }
+    .star-empty { color: #e9ecef; }
+    .oneri-badge { position: absolute; top: 10px; left: 10px; background: linear-gradient(135deg,#667eea,#764ba2); color: white; font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 10px; }
+    .acik-badge { position: absolute; top: 10px; right: 10px; background: rgba(17,153,142,0.9); color: white; font-size: 0.7rem; font-weight: 600; padding: 3px 8px; border-radius: 10px; }
+</style>
+
+@{
+    var oneriRestoranlar = new List<(SiparisUygulama.Models.Restoran r, SiparisUygulama.Services.AiServiceClient.OneriItem o)>();
+    if (oneriler != null)
+    {
+        foreach (var oneri in oneriler)
+        {
+            var r = Model.FirstOrDefault(x => x.RestaurantId == oneri.MenuItemId);
+            if (r != null) oneriRestoranlar.Add((r, oneri));
+            if (oneriRestoranlar.Count == 4) break;
+        }
+    }
+}
+
+<div class="card border-0 rounded-4 mb-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <div class="card-body text-white p-4">
+        <div class="d-flex align-items-center mb-3">
+            <div style="font-size:1.5rem;" class="me-2">🤖</div>
+            <div>
+                @if (oneriRestoranlar.Any())
+                {
+                    <div class="fw-bold">@(oneriKaynak == "collaborative" ? "Size Özel Öneriler" : "Popüler Seçimler")</div>
+                    <div class="small opacity-75">
+                        @(oneriKaynak == "collaborative"
+                            ? "Geçmiş siparişlerinize göre AI tarafından seçildi"
+                            : "En çok tercih edilen restoranlar")
+                    </div>
+                }
+                else
+                {
+                    <div class="fw-bold">Yapay Zeka Aktif</div>
+                    <div class="small opacity-75">Sipariş verdikçe size özel öneriler oluşturulacak</div>
+                }
+            </div>
+            <span class="badge bg-white ms-auto" style="color:#764ba2; font-size:0.75rem;">AI</span>
+        </div>
+
+        @if (oneriRestoranlar.Any())
+        {
+            <div class="d-flex flex-wrap gap-2">
+                @foreach (var (r, o) in oneriRestoranlar)
+                {
+                    var puan = o.TahminiPuan > 0 ? o.TahminiPuan : o.OrtPuan;
+                    <a href="/Restoran/Details/@r.RestaurantId" class="oneri-chip text-white text-decoration-none">
+                        @if (!string.IsNullOrEmpty(r.GorselUrl))
+                        {
+                            <img src="@r.GorselUrl" style="width:32px;height:32px;border-radius:50%;object-fit:cover;vertical-align:middle;" class="me-1" />
+                        }
+                        <span class="fw-semibold small">@r.RestaurantName</span>
+                        <span class="ms-1 opacity-75 small">★ @puan.ToString("F1")</span>
+                    </a>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="d-flex gap-3 small opacity-75">
+                <span>📊 Duygu analizi aktif</span>
+                <span>🔄 Collaborative filtering hazır</span>
+                <span>🗺️ Rota optimizasyonu aktif</span>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Yakınımdaki Restoranlar Haritası -->
+<div class="card border-0 rounded-4 mb-4" id="yakinHaritaKart" style="display:none;">
+    <div class="card-body p-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="fw-semibold"><i class="fas fa-map-location-dot me-2 text-primary"></i>Yakınımdaki Restoranlar</div>
+            <button class="btn btn-sm btn-outline-secondary rounded-3" onclick="haritayiKapat()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="yakinHarita" style="height:320px;border-radius:12px;z-index:1;"></div>
+        <div class="mt-2 text-muted small text-center" id="haritaBilgi">Konumunuz alınıyor...</div>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="fw-bold mb-0">Restoranlar</h4>
+    <div class="d-flex gap-2 align-items-center">
+        <button class="btn btn-outline-primary btn-sm rounded-3" onclick="haritaGoster()" id="haritaBtn">
+            <i class="fas fa-map me-1"></i>Haritada Gör
+        </button>
+        <span class="text-muted small" id="restoranSayisi">@Model.Count restoran bulundu</span>
+    </div>
+</div>
+
+<!-- Arama & Filtre -->
+@{
+    var mutfakTurleri = ViewBag.MutfakTurleri as List<string> ?? new List<string>();
+    var secilenMutfak = ViewBag.SecilenMutfak as string ?? "";
+    var siralama = ViewBag.Siralama as string ?? "";
+    var aramaVal = ViewBag.Arama as string ?? "";
+}
+<form method="get" action="/Restoran/Index" class="d-flex gap-2 mb-4 flex-wrap align-items-center">
+    <div style="position:relative;flex:1;min-width:200px;max-width:320px;">
+        <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#adb5bd;font-size:0.85rem;"></i>
+        <input type="text" name="arama" value="@aramaVal" class="form-control rounded-pill ps-4" placeholder="Restoran veya mutfak ara..." style="border:1.5px solid #e9ecef;background:white;" />
+    </div>
+    @if (mutfakTurleri.Any())
+    {
+        <select name="mutfak" class="form-select rounded-pill" style="max-width:170px;border:1.5px solid #e9ecef;" onchange="this.form.submit()">
+            <option value="">🍴 Tüm Mutfaklar</option>
+            @foreach (var m in mutfakTurleri)
+            {
+                @if (secilenMutfak == m) { <option value="@m" selected="selected">@m</option> }
+                else { <option value="@m">@m</option> }
+            }
+        </select>
+    }
+    <select name="siralama" class="form-select rounded-pill" style="max-width:160px;border:1.5px solid #e9ecef;" onchange="this.form.submit()">
+        <option value="">↕ Sıralama</option>
+        @if (siralama == "puan") { <option value="puan" selected="selected">⭐ Puana göre</option> } else { <option value="puan">⭐ Puana göre</option> }
+        @if (siralama == "isim") { <option value="isim" selected="selected">🔤 İsme göre</option> } else { <option value="isim">🔤 İsme göre</option> }
+    </select>
+    <button type="submit" class="btn rounded-pill px-3" style="background:#FF6B35;color:white;border:none;font-weight:600;">Ara</button>
+    @if (!string.IsNullOrEmpty(aramaVal) || !string.IsNullOrEmpty(secilenMutfak) || !string.IsNullOrEmpty(siralama))
+    {
+        <a href="/Restoran/Index" class="btn btn-outline-secondary rounded-pill px-3" style="font-size:0.85rem;">✕ Temizle</a>
+    }
+</form>
+@if (!string.IsNullOrEmpty(aramaVal) || !string.IsNullOrEmpty(secilenMutfak))
+{
+    <div class="mb-3 small text-muted">
+        <strong>@Model.Count</strong> sonuç bulundu
+        @if (!string.IsNullOrEmpty(aramaVal)) { <span> · "<strong>@aramaVal</strong>"</span> }
+        @if (!string.IsNullOrEmpty(secilenMutfak)) { <span> · <strong>@secilenMutfak</strong> mutfağı</span> }
+    </div>
+}
+
+<div class="row g-3" id="restoranGrid">
+    @foreach (var restoran in Model)
+    {
+        var isOneri = oneriRestoranlar.Any(x => x.r.RestaurantId == restoran.RestaurantId);
+        <div class="col-md-4 col-sm-6 restoran-item"
+             data-ad="@restoran.RestaurantName.ToLower()"
+             data-mutfak="@(restoran.MutfakTuru?.ToLower() ?? "")">
+            <div class="restoran-card card h-100" style="overflow:hidden; position:relative;">
+                @if (!string.IsNullOrEmpty(restoran.GorselUrl))
+                {
+                    <img src="@restoran.GorselUrl" class="restoran-img" alt="@restoran.RestaurantName" />
+                }
+                else
+                {
+                    <div class="restoran-img-placeholder">🍽️</div>
+                }
+                @if (isOneri)
+                {
+                    <span class="oneri-badge">🤖 Önerilir</span>
+                }
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <h6 class="fw-bold mb-0">@restoran.RestaurantName</h6>
+                        @if (!string.IsNullOrEmpty(restoran.MutfakTuru))
+                        {
+                            <span class="badge bg-light text-dark mutfak-badge">@restoran.MutfakTuru</span>
+                        }
+                    </div>
+                    @if (!string.IsNullOrEmpty(restoran.Adres))
+                    {
+                        <p class="text-muted small mb-2" style="font-size:0.78rem;">
+                            <i class="fas fa-map-marker-alt me-1"></i>@restoran.Adres
+                        </p>
+                    }
+                    @if (puanlar.TryGetValue(restoran.RestaurantId, out var p))
+                    {
+                        <div class="mb-2 d-flex align-items-center gap-1">
+                            @for (int s = 1; s <= 5; s++)
+                            {
+                                <i class="fas fa-star @(s <= Math.Round(p.Ort) ? "star-filled" : "star-empty")" style="font-size:0.75rem;"></i>
+                            }
+                            <span class="fw-semibold small ms-1">@p.Ort.ToString("F1")</span>
+                            <span class="text-muted small">(@p.Sayi)</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-2">
+                            @for (int s = 1; s <= 5; s++)
+                            {
+                                <i class="fas fa-star star-empty" style="font-size:0.75rem;"></i>
+                            }
+                            <span class="text-muted small ms-1">Henüz yorum yok</span>
+                        </div>
+                    }
+                    @if (restoran.MinSiparisAmount.HasValue || restoran.TeslimatUcreti.HasValue)
+                    {
+                        <div class="d-flex gap-2 mb-2" style="font-size:0.75rem;color:#6c757d;">
+                            @if (restoran.MinSiparisAmount.HasValue)
+                            {
+                                <span><i class="fas fa-shopping-bag me-1"></i>Min ₺@restoran.MinSiparisAmount</span>
+                            }
+                            @if (restoran.TeslimatUcreti.HasValue)
+                            {
+                                <span><i class="fas fa-motorcycle me-1"></i>@(restoran.TeslimatUcreti == 0 ? "Ücretsiz teslimat" : "₺" + restoran.TeslimatUcreti + " teslimat")</span>
+                            }
+                        </div>
+                    }
+                    <div class="d-flex gap-2">
+                        <a href="/Restoran/Details/@restoran.RestaurantId" class="btn btn-primary btn-sm flex-grow-1 rounded-3">
+                            <i class="fas fa-utensils me-1"></i>Menüye Git
+                        </a>
+                        <a href="/Yorum/RestoranYorumlari?restoranId=@restoran.RestaurantId" class="btn btn-outline-secondary btn-sm rounded-3" title="Yorumlar">
+                            <i class="fas fa-comment"></i>
+                        </a>
+                        <button class="btn btn-sm rounded-3 favori-btn @(favoriler.Contains(restoran.RestaurantId) ? "btn-danger" : "btn-outline-danger")"
+                                data-id="@restoran.RestaurantId"
+                                onclick="favoriToggle(this)"
+                                title="Favori">
+                            <i class="fas fa-heart"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+<script>
+const restoranlarData = [
+    @foreach (var r in Model.Where(r => r.Enlem != null && r.Boylam != null))
+    {
+        <text>{ id: @r.RestaurantId, ad: "@Html.Raw(r.RestaurantName?.Replace("\"","\\\""))", enlem: @r.Enlem!.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture), boylam: @r.Boylam!.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture), mutfak: "@(r.MutfakTuru ?? "")" },</text>
+    }
+];
+
+let haritaObj = null;
+
+function haritaGoster() {
+    document.getElementById('yakinHaritaKart').style.display = '';
+    document.getElementById('haritaBtn').style.display = 'none';
+    if (haritaObj) { setTimeout(() => haritaObj.invalidateSize(), 50); return; }
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(konum => {
+            baslatHarita(konum.coords.latitude, konum.coords.longitude);
+        }, () => {
+            // Konum izni yoksa İstanbul merkezi
+            baslatHarita(41.0082, 28.9784);
+            document.getElementById('haritaBilgi').textContent = 'Konum izni verilmedi, İstanbul merkezi gösteriliyor.';
+        });
+    } else {
+        baslatHarita(41.0082, 28.9784);
+    }
+}
+
+function haritayiKapat() {
+    document.getElementById('yakinHaritaKart').style.display = 'none';
+    document.getElementById('haritaBtn').style.display = '';
+}
+
+function baslatHarita(mEnlem, mBoylam) {
+    haritaObj = L.map('yakinHarita').setView([mEnlem, mBoylam], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(haritaObj);
+    setTimeout(() => haritaObj.invalidateSize(), 200);
+
+    // Kullanıcı konumu
+    const kullaniciIcon = L.divIcon({
+        html: '<div style="background:#667eea;color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">📍</div>',
+        className: '', iconSize: [36,36], iconAnchor: [18,18]
+    });
+    L.marker([mEnlem, mBoylam], { icon: kullaniciIcon }).addTo(haritaObj).bindPopup('<b>Konumunuz</b>').openPopup();
+
+    const restoranIcon = L.divIcon({
+        html: '<div style="background:#fd7e14;color:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:1rem;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">🍽️</div>',
+        className: '', iconSize: [32,32], iconAnchor: [16,16]
+    });
+
+    let yakin = [];
+    restoranlarData.forEach(r => {
+        const dist = mesafeHesapla(mEnlem, mBoylam, r.enlem, r.boylam);
+        yakin.push({ ...r, mesafe: dist });
+        L.marker([r.enlem, r.boylam], { icon: restoranIcon })
+            .addTo(haritaObj)
+            .bindPopup(`<b>${r.ad}</b><br>${r.mutfak}<br><span class='text-muted'>${dist < 1 ? (dist*1000).toFixed(0)+'m' : dist.toFixed(1)+'km'} uzakta</span><br><a href='/Restoran/Details/${r.id}' class='btn btn-primary btn-sm mt-1 rounded-3'>Menüye Git</a>`);
+    });
+
+    yakin.sort((a,b) => a.mesafe - b.mesafe);
+    const enYakin = yakin.slice(0,3).map(r => `${r.ad} (${r.mesafe < 1 ? (r.mesafe*1000).toFixed(0)+'m' : r.mesafe.toFixed(1)+'km'})`).join(' · ');
+    document.getElementById('haritaBilgi').textContent = yakin.length > 0 ? `En yakın: ${enYakin}` : 'Konum bilgisi olan restoran bulunamadı.';
+}
+
+function mesafeHesapla(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function restoranFiltrele() {
+    const arama = document.getElementById('aramaInput').value.toLowerCase();
+    const mutfakEl = document.getElementById('mutfakFiltre');
+    const mutfak = mutfakEl ? mutfakEl.value.toLowerCase() : '';
+    let gorunen = 0;
+    document.querySelectorAll('.restoran-item').forEach(el => {
+        const gorunur = el.dataset.ad.includes(arama) && (mutfak === '' || el.dataset.mutfak === mutfak);
+        el.style.display = gorunur ? '' : 'none';
+        if (gorunur) gorunen++;
+    });
+    document.getElementById('restoranSayisi').textContent = gorunen + ' restoran bulundu';
+}
+
+function favoriToggle(btn) {
+    const id = btn.dataset.id;
+    fetch('/Favori/Toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'restoranId=' + id
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.eklendi) {
+            btn.classList.remove('btn-outline-danger');
+            btn.classList.add('btn-danger');
+        } else {
+            btn.classList.remove('btn-danger');
+            btn.classList.add('btn-outline-danger');
+        }
+    })
+    .catch(() => {});
+}
+</script>
+}

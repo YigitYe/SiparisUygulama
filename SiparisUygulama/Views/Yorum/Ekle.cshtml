@@ -1,0 +1,61 @@
+@{
+    ViewData["Title"] = "Yorum Yap";
+}
+
+<style>
+    .star-btn { background: none; border: none; font-size: 2rem; cursor: pointer; padding: 0 4px; color: #dee2e6; transition: color 0.1s; }
+    .star-btn.active { color: #ffc107; }
+    .yorum-card { border: none; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="yorum-card card p-4">
+            <div class="text-center mb-4">
+                <div style="font-size:2.5rem;">⭐</div>
+                <h5 class="fw-bold mt-2 mb-1">Yorum Yap</h5>
+                <p class="text-muted small">Deneyiminizi paylaşın</p>
+            </div>
+
+            <form method="post">
+                <input type="hidden" name="orderId" value="@ViewBag.OrderId" />
+                <input type="hidden" name="puan" id="puanInput" value="" />
+
+                <div class="mb-4">
+                    <label class="form-label fw-semibold small">Puanınız</label>
+                    <div class="d-flex justify-content-center gap-1 mb-1" id="starContainer">
+                        <button type="button" class="star-btn" data-val="1" onclick="setPuan(1)">★</button>
+                        <button type="button" class="star-btn" data-val="2" onclick="setPuan(2)">★</button>
+                        <button type="button" class="star-btn" data-val="3" onclick="setPuan(3)">★</button>
+                        <button type="button" class="star-btn" data-val="4" onclick="setPuan(4)">★</button>
+                        <button type="button" class="star-btn" data-val="5" onclick="setPuan(5)">★</button>
+                    </div>
+                    <div class="text-center text-muted small" id="puanLabel">Bir puan seçin</div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-semibold small">Yorumunuz</label>
+                    <textarea class="form-control" name="yorumMetni" rows="4"
+                        placeholder="Yemeği nasıl buldunuz? Teslimat hakkında ne düşünüyorsunuz?"
+                        required style="border-radius:10px; border:1.5px solid #e9ecef; resize:none;"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 rounded-3 py-2 fw-semibold"
+                    style="background: linear-gradient(135deg,#667eea,#764ba2); border:none;">
+                    <i class="fas fa-paper-plane me-2"></i>Yorumu Gönder
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const labels = ['', 'Kötü', 'Zayıf', 'Orta', 'İyi', 'Mükemmel'];
+    function setPuan(val) {
+        document.getElementById('puanInput').value = val;
+        document.getElementById('puanLabel').textContent = labels[val];
+        document.querySelectorAll('.star-btn').forEach(btn => {
+            btn.classList.toggle('active', parseInt(btn.dataset.val) <= val);
+        });
+    }
+</script>

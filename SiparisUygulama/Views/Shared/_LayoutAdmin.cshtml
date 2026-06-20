@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] — Yemek Sipariş</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@@tabler/core@@1.0.0-beta17/dist/css/tabler.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@@tabler/icons-webfont@@latest/tabler-icons.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <style>
+        :root {
+            --sidebar-bg: #1a1f2e;
+            --sidebar-width: 260px;
+            --accent: #FF6B35;
+        }
+        body { font-family: 'Inter', sans-serif; background: #f4f6fa; }
+        .navbar-vertical { background: var(--sidebar-bg) !important; width: var(--sidebar-width); }
+        .navbar-vertical .navbar-brand { color: white !important; font-weight: 700; font-size: 1.05rem; padding: 1.2rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .navbar-vertical .navbar-brand:hover { color: rgba(255,255,255,0.85) !important; }
+        .navbar-vertical .nav-link { color: rgba(255,255,255,0.65) !important; border-radius: 8px; margin: 2px 8px; padding: 9px 12px; font-size: 0.87rem; font-weight: 500; display: flex; align-items: center; gap: 10px; transition: background 0.15s, color 0.15s; }
+        .navbar-vertical .nav-link:hover,
+        .navbar-vertical .nav-link.active { background: rgba(255,107,53,0.18) !important; color: #FF6B35 !important; }
+        .navbar-vertical .nav-link i { font-size: 1.05rem; flex-shrink: 0; }
+        .navbar-vertical .nav-section-title { color: rgba(255,255,255,0.3); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 14px 20px 4px; }
+        .page-wrapper { margin-left: var(--sidebar-width); min-height: 100vh; display: flex; flex-direction: column; }
+        .top-navbar { background: white; border-bottom: 1px solid #e9ecef; padding: 0 1.5rem; height: 56px; display: flex; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 6px rgba(0,0,0,0.05); }
+        .top-navbar .breadcrumb { margin: 0; font-size: 0.85rem; }
+        .top-navbar .breadcrumb-item a { color: #667eea; text-decoration: none; }
+        .top-navbar .breadcrumb-item.active { color: #495057; }
+        .user-chip { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+        .user-chip .avatar-sm { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #FF6B35, #e55a2b); color: white; font-weight: 700; font-size: 0.82rem; display: flex; align-items: center; justify-content: center; }
+        .user-chip .user-name { font-size: 0.85rem; font-weight: 600; color: #1a1f2e; }
+        .user-chip .user-role { font-size: 0.72rem; color: #6c757d; }
+        .logout-btn { padding: 5px 12px; border-radius: 8px; border: 1px solid #e9ecef; background: white; color: #dc3545; font-size: 0.8rem; font-weight: 500; text-decoration: none; transition: background 0.15s; display: flex; align-items: center; gap: 5px; }
+        .logout-btn:hover { background: #fff5f5; color: #dc3545; }
+        .page-body { padding: 1.5rem; flex: 1; }
+        @@keyframes pageFadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+        .page-body > * { animation: pageFadeIn 0.25s ease-out; }
+
+        @@media (max-width: 992px) {
+            .navbar-vertical { display: none; }
+            .page-wrapper { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+@{
+    var rol = Context.Session.GetString("Rol");
+    var ad = Context.Session.GetString("KullaniciAdi") ?? "Kullanıcı";
+    var currentPath = Context.Request.Path.ToString().ToLower();
+    var adHarf = ad.Length > 0 ? ad.Substring(0, 1).ToUpper() : "K";
+    var rolLabel = rol == "Admin" ? "Yönetici" : rol == "Personel" ? "Kurye" : rol == "Restoran" ? "Restoran" : rol ?? "";
+}
+
+<div class="d-flex">
+    <!-- Sidebar -->
+    <nav class="navbar-vertical d-flex flex-column" style="position:fixed;top:0;left:0;height:100vh;overflow-y:auto;z-index:200;">
+        <!-- Brand -->
+        <a class="navbar-brand d-flex align-items-center gap-2 w-100" href="/">
+            <span style="font-size:1.4rem;">🍽️</span>
+            <span>Yemek Sipariş</span>
+        </a>
+
+        <!-- Nav -->
+        <div class="flex-1 w-100 py-2">
+            @if (rol == "Admin")
+            {
+                <div class="nav-section-title">Ana Menü</div>
+                <a class="nav-link @(currentPath == "/admin/index" || currentPath == "/admin" ? "active" : "")" href="/Admin/Index">
+                    <i class="ti ti-dashboard"></i> Dashboard
+                </a>
+                <a class="nav-link" href="/Admin/Index#siparisler">
+                    <i class="ti ti-receipt"></i> Siparişler
+                </a>
+                <a class="nav-link" href="/Admin/Index#restoranlar">
+                    <i class="ti ti-building-store"></i> Restoranlar
+                </a>
+                <a class="nav-link" href="/Admin/Index#personeller">
+                    <i class="ti ti-motorcycle"></i> Personeller
+                </a>
+                <a class="nav-link" href="/Admin/Index#kullanicilar">
+                    <i class="ti ti-users"></i> Kullanıcılar
+                </a>
+                <div class="nav-section-title">Araçlar</div>
+                <a class="nav-link" href="/Admin/Index#harita">
+                    <i class="ti ti-map"></i> Kurye Haritası
+                </a>
+                <a class="nav-link" href="/Admin/Index#yoneticiler">
+                    <i class="ti ti-shield"></i> Yöneticiler
+                </a>
+            }
+
+            @if (rol == "Personel")
+            {
+                <div class="nav-section-title">Teslimatlar</div>
+                <a class="nav-link @(currentPath.Contains("bekleyen") ? "active" : "")" href="/Personel/BekleyenTeslimatlar">
+                    <i class="ti ti-clock"></i> Bekleyen Teslimatlar
+                </a>
+                <a class="nav-link @(currentPath.Contains("teslimatlarim") ? "active" : "")" href="/Personel/Teslimatlarim">
+                    <i class="ti ti-list"></i> Teslimatlarım
+                </a>
+            }
+
+            @if (rol == "Restoran")
+            {
+                <div class="nav-section-title">Restoran</div>
+                <a class="nav-link @(currentPath.Contains("restoranyonetim/index") || (currentPath.Contains("restoranyonetim") && !currentPath.Contains("siparis")) ? "active" : "")" href="/RestoranYonetim/Index">
+                    <i class="ti ti-tool"></i> Menü Yönetimi
+                </a>
+                <a class="nav-link @(currentPath.Contains("restoranyonetim/siparis") ? "active" : "")" href="/RestoranYonetim/Siparisler">
+                    <i class="ti ti-receipt"></i> Gelen Siparişler
+                </a>
+            }
+        </div>
+
+        <!-- Bottom logout -->
+        <div style="border-top:1px solid rgba(255,255,255,0.08);padding:12px 8px;">
+            <a href="/Giris/Cikis" class="nav-link" style="color:#ff6b6b !important;">
+                <i class="ti ti-logout"></i> Çıkış Yap
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <div class="page-wrapper">
+        <!-- Top Navbar -->
+        <div class="top-navbar">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="/">Ana Sayfa</a></li>
+                    <li class="breadcrumb-item active">@ViewData["Title"]</li>
+                </ol>
+            </nav>
+
+            <div class="user-chip">
+                <div class="avatar-sm">@adHarf</div>
+                <div>
+                    <div class="user-name">@ad</div>
+                    <div class="user-role">@rolLabel</div>
+                </div>
+                <a href="/Profil/Index" class="logout-btn ms-1" style="color:#667eea;">
+                    <i class="fas fa-user" style="font-size:0.75rem;"></i>
+                </a>
+                <a href="/Giris/Cikis" class="logout-btn">
+                    <i class="fas fa-sign-out-alt" style="font-size:0.75rem;"></i> Çıkış
+                </a>
+            </div>
+        </div>
+
+        <!-- Page Body -->
+        <div class="page-body">
+            @RenderBody()
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@@tabler/core@@1.0.0-beta17/dist/js/tabler.min.js"></script>
+@RenderSection("Scripts", required: false)
+<script>
+// Admin sayfasındayken sidebar linklerine tıklayınca sayfa yeniden yüklenmesin
+document.querySelectorAll('a[href*="/Admin/Index#"]').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+        var path = window.location.pathname.toLowerCase();
+        if (path === '/admin/index' || path === '/admin') {
+            e.preventDefault();
+            var hash = this.getAttribute('href').split('#')[1];
+            window.location.hash = '#' + hash;
+        }
+    });
+});
+</script>
+</body>
+</html>

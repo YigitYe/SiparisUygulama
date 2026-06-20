@@ -1,0 +1,314 @@
+@model List<SiparisUygulama.Models.Teslimat>
+@using System.Text.Json
+
+@{
+    Layout = "~/Views/Shared/_LayoutAdmin.cshtml";
+    ViewData["Title"] = "Teslimatlarım";
+
+    // Aktif (Yolda) teslimat ve rota
+    var yoldakilar = Model.Where(t => t.DeliveryStatus == "Yolda").ToList();
+    var aktifRota = new List<RotaNoktasiModel>();
+    int toplamMesafe = 0;
+    int tahminiSure = 0;
+
+    foreach (var t in yoldakilar)
+    {
+        if (!string.IsNullOrEmpty(t.RotaBilgisi))
+        {
+            try {
+                var r = JsonSerializer.Deserialize<RotaSonucModel>(t.RotaBilgisi, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (r?.OptimizedRoute != null)
+                {
+                    toplamMesafe = r.ToplamMesafeM;
+                    tahminiSure = r.TahminiSureDk;
+                    foreach (var n in r.OptimizedRoute)
+                    {
+                        if (!aktifRota.Any(x => x.SiparisId == n.SiparisId))
+                            aktifRota.Add(n);
+                    }
+                }
+            } catch { }
+        }
+    }
+
+    var rotaSirali = aktifRota.OrderBy(n => n.Sira).ToList();
+}
+
+<style>
+    .teslimat-card { border:none; border-radius:14px; box-shadow:0 2px 12px rgba(0,0,0,0.07); margin-bottom:0.85rem; transition:box-shadow 0.15s; }
+    .teslimat-card:hover { box-shadow:0 4px 20px rgba(0,0,0,0.12); }
+    #rotaHarita { height:460px; border-radius:16px; margin-bottom:1.5rem; box-shadow:0 4px 20px rgba(102,126,234,0.15); border:2px solid #e8eeff; }
+    .rota-panel { background:linear-gradient(135deg,#667eea,#764ba2); color:white; border-radius:14px; padding:1.2rem 1.5rem; margin-bottom:1.5rem; }
+    .stat-box { background:rgba(255,255,255,0.15); border-radius:10px; padding:0.6rem 1rem; text-align:center; }
+    .map-controls { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+    .status-yolda { background:#fff3cd; border-left:4px solid #ffc107; }
+    .status-teslim { background:#d1f5e0; border-left:4px solid #28a745; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-0">Teslimatlarım</h4>
+        <span class="text-muted small">@Model.Count teslimat</span>
+    </div>
+    <a href="/Personel/BekleyenTeslimatlar" class="btn btn-outline-primary btn-sm rounded-3">
+        <i class="fas fa-list me-1"></i>Bekleyenler
+    </a>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="empty-state">
+        <div >🛵</div>
+        <h5 class="">Henüz teslimatınız yok</h5>
+        <p class="text-muted small">Bekleyen teslimatları alarak başlayın.</p>
+        <a href="/Personel/BekleyenTeslimatlar" class="btn btn-primary rounded-3 mt-2">Teslimat Al</a>
+    </div>
+}
+else
+{
+    @if (yoldakilar.Any() && rotaSirali.Any())
+    {
+        <!-- Aktif Rota Bilgi Paneli -->
+        <div class="rota-panel">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <i class="fas fa-route" style="font-size:1.2rem;"></i>
+                <span class="fw-bold" style="font-size:1rem;">Aktif Rota — @yoldakilar.Count Teslimat</span>
+                <span class="badge bg-warning text-dark ms-auto">Yolda</span>
+            </div>
+            <div class="d-flex gap-3 flex-wrap">
+                <div class="stat-box">
+                    <div style="font-size:1.3rem;font-weight:700;">@((toplamMesafe / 1000.0).ToString("F1")) km</div>
+                    <div style="font-size:0.72rem;opacity:0.85;">Toplam Mesafe</div>
+                </div>
+                <div class="stat-box">
+                    <div style="font-size:1.3rem;font-weight:700;">~@tahminiSure dk</div>
+                    <div style="font-size:0.72rem;opacity:0.85;">Tahmini Süre</div>
+                </div>
+                <div class="stat-box">
+                    <div style="font-size:1.3rem;font-weight:700;">@rotaSirali.Count</div>
+                    <div style="font-size:0.72rem;opacity:0.85;">Durak</div>
+                </div>
+                @{
+                    var son = rotaSirali.Last();
+                    var wp = string.Join("|", rotaSirali.Select(n => n.Enlem + "," + n.Boylam));
+                    var mapsUrl = $"https://www.google.com/maps/dir/?api=1&destination={son.Enlem},{son.Boylam}&waypoints={wp}&travelmode=driving";
+                }
+                <a href="@mapsUrl" target="_blank" class="btn btn-light btn-sm rounded-3 ms-auto align-self-center fw-semibold">
+                    <i class="fab fa-google me-1"></i>Google Maps'te Aç
+                </a>
+            </div>
+        </div>
+
+        <!-- Harita -->
+        <div class="map-controls">
+            <button class="btn btn-outline-primary btn-sm rounded-3" id="konumBtn" onclick="konumuBulVeGoster()">
+                <i class="fas fa-location-crosshairs me-1"></i>Konumumu Göster
+            </button>
+            <button class="btn btn-outline-success btn-sm rounded-3" id="osrmBtn" onclick="gercekRotaCiz()" title="Gerçek yol güzergahını çiz">
+                <i class="fas fa-road me-1"></i>Yol Rotası
+            </button>
+        </div>
+        <div id="rotaHarita"></div>
+    }
+
+    @foreach (var t in Model.OrderBy(x => x.DeliveryStatus == "Teslim Edildi" ? 1 : 0))
+    {
+        var cardClass = t.DeliveryStatus == "Yolda" ? "status-yolda" : t.DeliveryStatus == "Teslim Edildi" ? "status-teslim" : "";
+        <div class="teslimat-card card @cardClass">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div>
+                        <div class="fw-bold">Sipariş #@t.OrderId
+                            @{
+                                var durakNo = rotaSirali.FirstOrDefault(r => r.SiparisId == t.OrderId);
+                            }
+                            @if (durakNo != null)
+                            {
+                                <span class="badge rounded-pill ms-2" style="background:#667eea;font-size:0.7rem;">@durakNo.Sira. Durak</span>
+                            }
+                        </div>
+                        <div class="text-muted small">@t.Order.Kullanici?.KullaniciAdi</div>
+                        <div class="small mt-1">
+                            <i class="fas fa-map-marker-alt me-1 text-danger"></i>@t.Order.DeliveryAddress
+                        </div>
+                        @if (t.DeliveryTime.HasValue)
+                        {
+                            <div class="small text-muted mt-1">
+                                <i class="fas fa-clock me-1"></i>@t.DeliveryTime.Value.ToString("dd MMM HH:mm")
+                            </div>
+                        }
+                    </div>
+                    <div class="d-flex flex-column gap-2 align-items-end">
+                        @{
+                            var badgeRenk = t.DeliveryStatus == "Teslim Edildi" ? "bg-success"
+                                : t.DeliveryStatus == "Yolda" ? "bg-warning text-dark" : "bg-secondary";
+                        }
+                        <span class="badge @badgeRenk rounded-pill px-3">@t.DeliveryStatus</span>
+                        <div class="fw-bold text-success">₺@t.Order.TotalAmount</div>
+                        @if (t.DeliveryStatus == "Yolda")
+                        {
+                            <form asp-controller="Personel" asp-action="TeslimEt" method="post">
+                                <input type="hidden" name="deliveryId" value="@t.DeliveryId" />
+                                <button type="submit" class="btn btn-success btn-sm rounded-3"
+                                    onclick="return confirm('Teslimat tamamlandı mı?')">
+                                    <i class="fas fa-check me-1"></i>Teslim Ettim
+                                </button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@section Scripts {
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+<script>
+// SignalR bağlantısı — konum otomatik push
+@if (yoldakilar.Any())
+{
+    <text>
+    const hubConn = new signalR.HubConnectionBuilder().withUrl("/siparisHub").withAutomaticReconnect().build();
+    hubConn.start().then(() => {
+        // Her 15 saniyede bir konumu güncelle ve SignalR'a push et
+        setInterval(() => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    fetch('/Personel/KonumGuncelle', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ enlem: pos.coords.latitude, boylam: pos.coords.longitude })
+                    });
+                    // Haritada kurye markerını güncelle
+                    if (window._kureyLat !== pos.coords.latitude) {
+                        window._kureyLat = pos.coords.latitude;
+                        window._kureyLng = pos.coords.longitude;
+                    }
+                }, () => {});
+            }
+        }, 15000);
+    }).catch(e => console.warn('SignalR:', e));
+    </text>
+}
+</script>
+<script>
+@if (yoldakilar.Any() && rotaSirali.Any())
+{
+    var rotaJson = System.Text.Json.JsonSerializer.Serialize(rotaSirali.Select(n => new {
+        siparisId = n.SiparisId, enlem = n.Enlem, boylam = n.Boylam, sira = n.Sira
+    }));
+    <text>
+    var rotaNoktalar = @Html.Raw(rotaJson);
+    var map = L.map('rotaHarita');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap', maxZoom: 19
+    }).addTo(map);
+
+    var bounds = [];
+    var routeLatLngs = [];
+    var osrmPolyline = null;
+
+    // Teslimat noktaları için renkli numaralı markerlar
+    function makeNumberedIcon(num, bg) {
+        return L.divIcon({
+            html: '<div style="background:' + bg + ';color:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;border:2.5px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.35);">' + num + '</div>',
+            iconSize: [32,32], iconAnchor: [16,16], popupAnchor: [0,-16], className: ''
+        });
+    }
+
+    rotaNoktalar.sort((a,b) => a.sira - b.sira).forEach(function(n, i) {
+        var ll = [n.enlem, n.boylam];
+        routeLatLngs.push(ll);
+        bounds.push(ll);
+        L.marker(ll, { icon: makeNumberedIcon(n.sira, i === rotaNoktalar.length-1 ? '#e74c3c' : '#667eea') })
+            .addTo(map)
+            .bindPopup('<strong>' + n.sira + '. Durak</strong><br>Sipariş #' + n.siparisId);
+    });
+
+    // Düz bağlantı çizgisi (başlangıç)
+    var straightLine = L.polyline(routeLatLngs, { color: '#667eea', weight: 3, opacity: 0.5, dashArray: '6,5' }).addTo(map);
+
+    if (bounds.length > 0) map.fitBounds(bounds, { padding: [50,50] });
+
+    // Kurye konumu butonu
+    var kureyMarker = null;
+    function konumuBulVeGoster() {
+        const btn = document.getElementById('konumBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Alınıyor...';
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-location-crosshairs me-1"></i>Konumumu Göster';
+            const ll = [pos.coords.latitude, pos.coords.longitude];
+            if (kureyMarker) kureyMarker.remove();
+            kureyMarker = L.marker(ll, {
+                icon: L.divIcon({
+                    html: '<div style="background:#28a745;color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;border:2.5px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.35);">🛵</div>',
+                    iconSize:[36,36], iconAnchor:[18,18], popupAnchor:[0,-18], className:''
+                })
+            }).addTo(map).bindPopup('<strong>📍 Mevcut Konumunuz</strong>').openPopup();
+
+            // Kurye konumunu rotanın başına ekle
+            if (routeLatLngs[0] !== ll) {
+                straightLine.setLatLngs([ll, ...routeLatLngs]);
+            }
+            map.setView(ll, 13);
+
+            // Konumu sunucuya güncelle
+            fetch('/Personel/KonumGuncelle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enlem: pos.coords.latitude, boylam: pos.coords.longitude })
+            });
+        }, function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-location-crosshairs me-1"></i>Konumumu Göster';
+            alert('Konum alınamadı. Lütfen tarayıcı iznini kontrol edin.');
+        });
+    }
+
+    // OSRM ile gerçek yol rotası
+    async function gercekRotaCiz() {
+        const btn = document.getElementById('osrmBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Yükleniyor...';
+        try {
+            const points = kureyMarker
+                ? [[kureyMarker.getLatLng().lat, kureyMarker.getLatLng().lng], ...routeLatLngs]
+                : routeLatLngs;
+            const coords = points.map(p => p[1] + ',' + p[0]).join(';');
+            const res = await fetch('https://router.project-osrm.org/route/v1/driving/' + coords + '?overview=full&geometries=geojson');
+            const data = await res.json();
+            if (data.routes && data.routes[0]) {
+                if (osrmPolyline) osrmPolyline.remove();
+                straightLine.setStyle({ opacity: 0.2 });
+                const geom = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                osrmPolyline = L.polyline(geom, { color: '#e74c3c', weight: 5, opacity: 0.85 }).addTo(map);
+                btn.innerHTML = '<i class="fas fa-check me-1"></i>Yol Rotası';
+                btn.classList.replace('btn-outline-success', 'btn-success');
+            } else { throw new Error(); }
+        } catch {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-road me-1"></i>Yol Rotası';
+            alert('Yol rotası alınamadı. İnternet bağlantınızı kontrol edin.');
+        }
+    }
+    </text>
+}
+</script>
+}
+
+@functions {
+    class RotaSonucModel {
+        public List<RotaNoktasiModel>? OptimizedRoute { get; set; }
+        public int ToplamMesafeM { get; set; }
+        public int TahminiSureDk { get; set; }
+    }
+    class RotaNoktasiModel {
+        public int SiparisId { get; set; }
+        public double Enlem { get; set; }
+        public double Boylam { get; set; }
+        public int Sira { get; set; }
+    }
+}

@@ -1,0 +1,216 @@
+@model SiparisUygulama.Models.Sipari
+@{
+    ViewData["Title"] = "Sipariş Detayı";
+    var adimlar = new[] { "Beklemede", "Hazırlanıyor", "Hazır", "Yolda", "Teslim Edildi" };
+    var aktifIndex = Array.IndexOf(adimlar, Model.OrderStatus);
+    if (aktifIndex < 0) aktifIndex = 0;
+}
+
+<style>
+    .detay-card { border: none; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+    .item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f3f5; }
+    .item-row:last-child { border-bottom: none; }
+    .timeline { display: flex; align-items: center; }
+    .timeline-step { display: flex; flex-direction: column; align-items: center; flex: 1; }
+    .timeline-dot { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border: 2px solid #e9ecef; background: white; color: #adb5bd; }
+    .timeline-dot.done { background: #667eea; border-color: #667eea; color: white; }
+    .timeline-dot.active { background: white; border-color: #667eea; color: #667eea; box-shadow: 0 0 0 4px rgba(102,126,234,0.2); }
+    .timeline-line { flex: 1; height: 3px; background: #e9ecef; }
+    .timeline-line.done { background: #667eea; }
+    .timeline-label { font-size: 0.72rem; color: #adb5bd; margin-top: 6px; text-align: center; }
+    .timeline-label.done, .timeline-label.active { color: #667eea; font-weight: 600; }
+    .status-badge { padding: 6px 14px; border-radius: 20px; font-size: 0.82rem; font-weight: 600; }
+</style>
+
+<div class="d-flex align-items-center gap-3 mb-4">
+    <a href="/Siparis/Siparislerim" class="btn btn-outline-secondary btn-sm rounded-3">
+        <i class="fas fa-arrow-left me-1"></i>Geri
+    </a>
+    <div>
+        <h4 class="fw-bold mb-0">Sipariş #@Model.OrderId</h4>
+        <span class="text-muted small">@Model.OrderDate.ToString("dd MMMM yyyy, HH:mm")</span>
+    </div>
+    @{
+        var sc = Model.OrderStatus == "Teslim Edildi" ? "bg-success" : Model.OrderStatus == "Hazır" ? "bg-warning text-dark" : "bg-primary";
+    }
+    <span class="badge @sc ms-auto status-badge">@Model.OrderStatus</span>
+</div>
+
+<!-- Sipariş Durumu Timeline -->
+<div class="detay-card card mb-4 p-4">
+    <div class="fw-semibold mb-3"><i class="fas fa-route me-2 text-primary"></i>Sipariş Durumu</div>
+    <div class="timeline">
+        @for (int i = 0; i < adimlar.Length; i++)
+        {
+            var isDone = i < aktifIndex;
+            var isActive = i == aktifIndex;
+            var icons = new[] { "⏳", "👨‍🍳", "✅", "🛵", "📦" };
+            <div class="timeline-step">
+                <div class="timeline-dot @(isDone ? "done" : isActive ? "active" : "")">@icons[i]</div>
+                <div class="timeline-label @(isDone ? "done" : isActive ? "active" : "")">@adimlar[i]</div>
+            </div>
+            @if (i < adimlar.Length - 1)
+            {
+                <div class="timeline-line @(isDone ? "done" : "")"></div>
+            }
+        }
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Sipariş Kalemleri -->
+    <div class="col-md-7">
+        <div class="detay-card card p-4">
+            <div class="fw-semibold mb-3"><i class="fas fa-utensils me-2 text-primary"></i>Sipariş İçeriği</div>
+            @foreach (var item in Model.SiparisDetays)
+            {
+                <div class="item-row">
+                    <div class="d-flex align-items-center gap-3">
+                        @if (!string.IsNullOrEmpty(item.MenuItem?.GorselUrl))
+                        {
+                            <img src="@item.MenuItem.GorselUrl" style="width:44px;height:44px;border-radius:8px;object-fit:cover;" />
+                        }
+                        else
+                        {
+                            <div style="width:44px;height:44px;border-radius:8px;background:#f1f3f5;display:flex;align-items:center;justify-content:center;font-size:1.3rem;">🍔</div>
+                        }
+                        <div>
+                            <div class="fw-semibold small">@item.MenuItem?.ItemName</div>
+                            <div class="text-muted" style="font-size:0.75rem;">@item.MenuItem?.Restaurant?.RestaurantName · x@item.Miktar</div>
+                        </div>
+                    </div>
+                    <div class="fw-bold text-success">₺@(item.Fiyat * item.Miktar)</div>
+                </div>
+            }
+            <div class="d-flex justify-content-between fw-bold mt-3 pt-2 border-top">
+                <span>Toplam</span>
+                <span class="text-success fs-5">₺@Model.TotalAmount</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Teslimat Bilgileri -->
+    <div class="col-md-5">
+        <div class="detay-card card p-4 mb-3">
+            <div class="fw-semibold mb-3"><i class="fas fa-map-marker-alt me-2 text-danger"></i>Teslimat Adresi</div>
+            <p class="text-muted mb-0">@Model.DeliveryAddress</p>
+        </div>
+
+        @{
+            var teslimat = Model.Teslimats.FirstOrDefault();
+        }
+        @if (teslimat != null)
+        {
+            <div class="detay-card card p-4 mb-3">
+                <div class="fw-semibold mb-2"><i class="fas fa-motorcycle me-2 text-success"></i>Teslimat Bilgisi</div>
+                <div class="small text-muted">Durum: <span class="fw-semibold text-dark">@teslimat.DeliveryStatus</span></div>
+                @if (teslimat.DeliveryTime.HasValue)
+                {
+                    <div class="small text-muted mt-1">Teslim: <span class="fw-semibold text-dark">@teslimat.DeliveryTime.Value.ToString("dd MMM, HH:mm")</span></div>
+                }
+            </div>
+        }
+
+        @if (Model.Teslimats.Any(t => t.DeliveryStatus == "Teslim Edildi"))
+        {
+            <div style="background:linear-gradient(135deg,#fff3cd,#fff8e1);border-radius:14px;padding:1.2rem;border:1.5px solid #ffc107;">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span style="font-size:1.4rem;">⭐</span>
+                    <div>
+                        <div class="fw-bold" style="font-size:0.9rem;">Siparişiniz teslim edildi!</div>
+                        <div class="text-muted" style="font-size:0.78rem;">Deneyiminizi paylaşın, diğer kullanıcılara yardımcı olun.</div>
+                    </div>
+                </div>
+                <a href="/Yorum/Ekle?orderId=@Model.OrderId" class="btn w-100 rounded-3 fw-semibold" style="background:#FF6B35;color:white;border:none;">
+                    <i class="fas fa-star me-1"></i>Yorum & Puan Ver
+                </a>
+            </div>
+        }
+    </div>
+</div>
+
+@if (Model.OrderStatus == "Yolda" && Model.Kullanici?.VarsayilanEnlem != null)
+{
+    <div class="detay-card card mt-4 p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="fw-semibold"><i class="fas fa-map-location-dot me-2 text-warning"></i>Canlı Kurye Takibi</div>
+            <span class="badge bg-warning text-dark" id="takipDurum">Kurye yola çıktı</span>
+        </div>
+        <div id="canliHarita" style="height:380px;border-radius:12px;z-index:1;"></div>
+        <div class="mt-2 text-muted small text-center" id="konumZaman">Konum güncelleniyor...</div>
+    </div>
+
+    @section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script>
+    const musterEnlem = @Model.Kullanici.VarsayilanEnlem.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
+    const musterBoylam = @((Model.Kullanici.VarsayilanBoylam ?? 0).ToString("F6", System.Globalization.CultureInfo.InvariantCulture));
+    const orderId = @Model.OrderId;
+
+    const map = L.map('canliHarita').setView([musterEnlem, musterBoylam], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Müşteri hedef markeri
+    const hedefIcon = L.divIcon({
+        html: '<div style="background:#667eea;color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">📍</div>',
+        className: '', iconSize: [36, 36], iconAnchor: [18, 18]
+    });
+    L.marker([musterEnlem, musterBoylam], { icon: hedefIcon })
+        .addTo(map)
+        .bindPopup('<b>Teslimat Noktanız</b><br>@Html.Raw(Model.DeliveryAddress?.Replace("'", "\\'"))');
+
+    // Kurye markeri (başlangıçta gizli)
+    const kuryeIcon = L.divIcon({
+        html: '<div style="background:#fd7e14;color:white;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">🛵</div>',
+        className: '', iconSize: [40, 40], iconAnchor: [20, 20]
+    });
+    let kuryeMarker = null;
+    let rotaLine = null;
+
+    function kuryeKonumGuncelle(enlem, boylam) {
+        if (kuryeMarker) {
+            kuryeMarker.setLatLng([enlem, boylam]);
+        } else {
+            kuryeMarker = L.marker([enlem, boylam], { icon: kuryeIcon })
+                .addTo(map)
+                .bindPopup('<b>Kurye</b><br>Siparişiniz yolda!');
+        }
+
+        // Kurye → müşteri çizgisi
+        if (rotaLine) map.removeLayer(rotaLine);
+        rotaLine = L.polyline([[enlem, boylam], [musterEnlem, musterBoylam]], {
+            color: '#fd7e14', weight: 3, opacity: 0.7, dashArray: '8, 6'
+        }).addTo(map);
+
+        // İkisini de gösterecek şekilde zoom
+        map.fitBounds([[enlem, boylam], [musterEnlem, musterBoylam]], { padding: [50, 50] });
+
+        const now = new Date();
+        document.getElementById('konumZaman').textContent =
+            'Son güncelleme: ' + now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ':' + now.getSeconds().toString().padStart(2,'0');
+        document.getElementById('takipDurum').textContent = 'Kurye yolda 🛵';
+    }
+
+    // SignalR bağlantısı
+    const conn = new signalR.HubConnectionBuilder().withUrl('/siparisHub').withAutomaticReconnect().build();
+
+    conn.on('KureyeKonumu', function(gelen_orderId, enlem, boylam) {
+        if (gelen_orderId === orderId) {
+            kuryeKonumGuncelle(enlem, boylam);
+        }
+    });
+
+    conn.on('SiparisDurumGuncellendi', function(gelen_orderId, yeniDurum) {
+        if (gelen_orderId === orderId && yeniDurum === 'Teslim Edildi') {
+            document.getElementById('takipDurum').textContent = '✅ Teslim Edildi!';
+            document.getElementById('takipDurum').className = 'badge bg-success';
+            setTimeout(() => location.reload(), 2000);
+        }
+    });
+
+    conn.start().catch(err => console.warn('SignalR bağlanamadı:', err));
+    </script>
+    }
+}

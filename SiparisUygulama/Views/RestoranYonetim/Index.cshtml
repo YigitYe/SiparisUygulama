@@ -1,0 +1,40 @@
+@model List<SiparisUygulama.Models.Restoran>
+
+@{
+    Layout = "~/Views/Shared/_LayoutAdmin.cshtml";
+    ViewData["Title"] = "Restoran Yönetimi";
+}
+
+<style>
+    .restoran-card { border: none; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); transition: transform 0.2s, box-shadow 0.2s; }
+    .restoran-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-1">Restoran Yönetimi</h4>
+        <span class="text-muted small">@Model.Count restoran yönetiyorsunuz</span>
+    </div>
+</div>
+
+<div class="row g-3">
+    @foreach (var restoran in Model)
+    {
+        <div class="col-md-4 col-sm-6">
+            <div class="restoran-card card h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-start gap-2 mb-3">
+                        <div style="font-size:1.8rem;">🏪</div>
+                        <div>
+                            <div class="fw-bold">@restoran.RestaurantName</div>
+                            <div class="text-muted small"><i class="fas fa-map-marker-alt me-1"></i>@restoran.Adres</div>
+                        </div>
+                    </div>
+                    <a href="/RestoranYonetim/Details/@restoran.RestaurantId" class="btn btn-primary btn-sm rounded-3 w-100">
+                        <i class="fas fa-utensils me-1"></i>Menüyü Yönet
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+</div>

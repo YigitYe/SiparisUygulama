@@ -1,0 +1,249 @@
+@model List<SepetItem>
+
+@{
+    ViewData["Title"] = "Sepetim";
+    var toplam = Model.Sum(x => x.Fiyat * x.Miktar);
+}
+
+<style>
+    .sepet-card { border: none; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 0.75rem; }
+    .ozet-card { border: none; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); position: sticky; top: 1rem; }
+    .step-indicator { display: flex; gap: 0; margin-bottom: 1.5rem; }
+    .step { flex: 1; text-align: center; padding: 8px; font-size: 0.8rem; font-weight: 600; color: #adb5bd; border-bottom: 3px solid #e9ecef; }
+    .step.active { color: #667eea; border-bottom-color: #667eea; }
+    .step.done { color: #22c55e; border-bottom-color: #22c55e; }
+    .card-input { letter-spacing: 2px; font-family: monospace; font-size: 1.1rem; }
+</style>
+
+<div class="d-flex align-items-center gap-3 mb-4">
+    <h4 class="fw-bold mb-0">Sepetim</h4>
+    @if (Model.Any())
+    {
+        <span class="badge bg-primary rounded-pill">@Model.Count ürün</span>
+    }
+</div>
+
+@if (!Model.Any())
+{
+    <div class="empty-state">
+        <div >🛒</div>
+        <h5 class="">Sepetiniz boş</h5>
+        <a href="/Restoran/Index" class="btn btn-primary mt-2 rounded-3">Restoranlara Gözat</a>
+    </div>
+}
+else
+{
+    <div class="row g-4">
+        <div class="col-md-8">
+            @foreach (var item in Model)
+            {
+                <div class="sepet-card card">
+                    <div class="card-body d-flex align-items-center gap-3 py-3">
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">@item.ItemName</div>
+                            <div class="text-muted small">@item.Miktar adet × ₺@item.Fiyat</div>
+                        </div>
+                        <div class="fw-bold text-success">₺@(item.Fiyat * item.Miktar)</div>
+                        <form asp-action="SepettenSil" method="post" class="d-inline">
+                            <input type="hidden" name="id" value="@item.MenuItemID" />
+                            <button type="submit" class="btn btn-outline-danger btn-sm rounded-3">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="col-md-4">
+            <div class="ozet-card card p-4">
+                <h6 class="fw-bold mb-3">Sipariş Özeti</h6>
+                <div class="d-flex justify-content-between mb-2 text-muted small">
+                    <span>Ara toplam</span><span>₺@toplam</span>
+                </div>
+                <div class="d-flex justify-content-between mb-3 text-muted small">
+                    <span>Teslimat</span><span class="text-success">Ücretsiz</span>
+                </div>
+                <hr />
+                <div class="d-flex justify-content-between fw-bold mb-4">
+                    <span>Toplam</span>
+                    <span class="text-success fs-5">₺@toplam</span>
+                </div>
+                <button class="btn btn-primary w-100 rounded-3 py-2" onclick="odemeBaslat()">
+                    <i class="fas fa-check-circle me-2"></i>Siparişi Tamamla
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Çok Adımlı Ödeme Modal -->
+<div class="modal fade" id="odemeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:16px; border:none;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Siparişi Tamamla</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <div class="step-indicator">
+                    <div class="step active" id="step1Ind">1. Adres</div>
+                    <div class="step" id="step2Ind">2. Ödeme</div>
+                    <div class="step" id="step3Ind">3. Onay</div>
+                </div>
+
+                <!-- Adım 1: Adres -->
+                <div id="step1">
+                    <p class="text-muted small mb-3"><i class="fas fa-map-marker-alt me-1"></i>Teslimat adresinizi girin</p>
+                    <textarea id="adresInput" class="form-control mb-2" rows="3"
+                        placeholder="Mahalle, sokak, no, daire..." style="border-radius:10px;border:1.5px solid #e9ecef;"></textarea>
+                    <button type="button" id="konumBtn" class="btn btn-outline-success w-100 rounded-3 mb-3" onclick="konumAl(this)">
+                        <i class="fas fa-location-crosshairs me-1"></i> Konumumu Kullan
+                    </button>
+                    <button class="btn btn-primary w-100 rounded-3" onclick="adresonay()">
+                        Devam <i class="fas fa-arrow-right ms-1"></i>
+                    </button>
+                </div>
+
+                <!-- Adım 2: Ödeme -->
+                <div id="step2" style="display:none;">
+                    <p class="text-muted small mb-3"><i class="fas fa-credit-card me-1"></i>Kart bilgilerinizi girin</p>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Kart Numarası</label>
+                        <input type="text" id="kartNo" class="form-control card-input" placeholder="0000 0000 0000 0000"
+                            maxlength="19" oninput="kartFormatla(this)" style="border-radius:10px;border:1.5px solid #e9ecef;" />
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Son Kullanma</label>
+                            <input type="text" id="kartSon" class="form-control" placeholder="MM/YY" maxlength="5"
+                                oninput="tarihFormatla(this)" style="border-radius:10px;border:1.5px solid #e9ecef;" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">CVV</label>
+                            <input type="password" id="kartCvv" class="form-control" placeholder="•••" maxlength="3"
+                                style="border-radius:10px;border:1.5px solid #e9ecef;" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Kart Üzerindeki Ad</label>
+                        <input type="text" id="kartAd" class="form-control" placeholder="AD SOYAD"
+                            style="border-radius:10px;border:1.5px solid #e9ecef;text-transform:uppercase;" />
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-secondary rounded-3" onclick="geriDon()">
+                            <i class="fas fa-arrow-left me-1"></i>Geri
+                        </button>
+                        <button class="btn btn-primary flex-grow-1 rounded-3" onclick="odemeOnayla()">
+                            <i class="fas fa-lock me-1"></i>₺@toplam Öde
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Adım 3: Onay -->
+                <div id="step3" style="display:none;">
+                    <div class="text-center py-3">
+                        <div id="odemeSpinner" class="spinner-border text-primary mb-3" role="status"></div>
+                        <div id="odemeBasarili" style="display:none;">
+                            <div style="font-size:3.5rem;">✅</div>
+                            <h5 class="fw-bold mt-2">Sipariş Alındı!</h5>
+                            <p class="text-muted small">Ödemeniz onaylandı. Siparişiniz hazırlanıyor.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+let adres = '';
+
+function odemeBaslat() {
+    // Formu sıfırla
+    document.getElementById('step1').style.display = 'block';
+    document.getElementById('step2').style.display = 'none';
+    document.getElementById('step3').style.display = 'none';
+    ['step1Ind','step2Ind','step3Ind'].forEach((id,i) => {
+        document.getElementById(id).className = 'step' + (i===0?' active':'');
+    });
+    new bootstrap.Modal(document.getElementById('odemeModal')).show();
+}
+
+function konumAl(btn) {
+    if (!navigator.geolocation) { alert('Tarayıcınız konum servisini desteklemiyor.'); return; }
+    const eski = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Konum alınıyor...';
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        const lat = pos.coords.latitude, lon = pos.coords.longitude;
+        try {
+            const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=tr`);
+            const d = await r.json();
+            document.getElementById('adresInput').value = d.display_name || (lat.toFixed(5) + ', ' + lon.toFixed(5));
+        } catch {
+            document.getElementById('adresInput').value = lat.toFixed(5) + ', ' + lon.toFixed(5);
+        }
+        btn.disabled = false; btn.innerHTML = eski;
+    }, () => {
+        alert('Konum alınamadı. Lütfen tarayıcı konum iznini açın veya adresi elle girin.');
+        btn.disabled = false; btn.innerHTML = eski;
+    }, { enableHighAccuracy: true, timeout: 10000 });
+}
+
+function adresonay() {
+    adres = document.getElementById('adresInput').value.trim();
+    if (!adres) { alert('Lütfen teslimat adresi girin.'); return; }
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = 'block';
+    document.getElementById('step1Ind').className = 'step done';
+    document.getElementById('step2Ind').className = 'step active';
+}
+
+function geriDon() {
+    document.getElementById('step2').style.display = 'none';
+    document.getElementById('step1').style.display = 'block';
+    document.getElementById('step2Ind').className = 'step';
+    document.getElementById('step1Ind').className = 'step active';
+}
+
+function odemeOnayla() {
+    const no = document.getElementById('kartNo').value.replace(/\s/g,'');
+    const son = document.getElementById('kartSon').value;
+    const cvv = document.getElementById('kartCvv').value;
+    const ad = document.getElementById('kartAd').value;
+    if (no.length < 16 || son.length < 5 || cvv.length < 3 || !ad.trim()) {
+        alert('Lütfen tüm kart bilgilerini eksiksiz girin.'); return;
+    }
+    document.getElementById('step2').style.display = 'none';
+    document.getElementById('step3').style.display = 'block';
+    document.getElementById('step2Ind').className = 'step done';
+    document.getElementById('step3Ind').className = 'step active';
+
+    $.ajax({
+        url: '/Siparis/SiparisiTamamlaAjax', type: 'POST', data: { adres },
+        success: function() {
+            document.getElementById('odemeSpinner').style.display = 'none';
+            document.getElementById('odemeBasarili').style.display = 'block';
+            document.getElementById('step3Ind').className = 'step done';
+            setTimeout(() => window.location.href = '/Siparis/Siparislerim', 2200);
+        },
+        error: function(xhr) {
+            alert('Hata: ' + xhr.responseText);
+            bootstrap.Modal.getInstance(document.getElementById('odemeModal')).hide();
+        }
+    });
+}
+
+function kartFormatla(el) {
+    el.value = el.value.replace(/\D/g,'').replace(/(.{4})/g,'$1 ').trim().substring(0,19);
+}
+function tarihFormatla(el) {
+    let v = el.value.replace(/\D/g,'');
+    if (v.length >= 2) v = v.substring(0,2) + '/' + v.substring(2);
+    el.value = v.substring(0,5);
+}
+</script>
+}

@@ -1,0 +1,30 @@
+# Build
+bin/
+obj/
+out/
+build/
+target/
+.gradle/
+*.class
+# IDE
+.vs/
+.idea/
+*.iml
+*.user
+*.suo
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+# Node
+node_modules/
+# Android
+local.properties
+# OS
+.DS_Store
+Thumbs.db
+# Env/secrets
+.env
+*.env
+appsettings.Production.json

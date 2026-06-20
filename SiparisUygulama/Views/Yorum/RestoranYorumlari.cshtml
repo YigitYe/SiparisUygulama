@@ -1,0 +1,55 @@
+@model List<SiparisUygulama.Models.Yorum>
+@{
+    ViewData["Title"] = "Restoran Yorumları";
+}
+
+<h2 class="mb-4">@ViewBag.RestoranAdi Yorumları</h2>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">Bu restorana ait yorum bulunmamaktadır.</div>
+}
+else
+{
+    <ul class="list-group list-group-flush">
+        @foreach (var yorum in Model)
+        {
+            <li class="list-group-item px-0 py-3">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>@yorum.Kullanici.KullaniciAdi</strong>
+                        <span class="text-muted small ms-2">@yorum.ReviewDate?.ToString("dd MMM yyyy")</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        @* Yıldız puanı *@
+                        <span class="text-warning">
+                            @for (int i = 1; i <= 5; i++)
+                            {
+                                <i class="fas fa-star@(i <= (yorum.Puan ?? 0) ? "" : " text-muted opacity-25")"></i>
+                            }
+                        </span>
+
+                        @* AI Duygu Skoru *@
+                        @if (yorum.DuyguAnalizSkoru.HasValue)
+                        {
+                            var skor = yorum.DuyguAnalizSkoru.Value;
+                            var (badgeClass, ikon, etiket) = skor >= 0.05f
+                                ? ("bg-success", "fa-smile", "Pozitif")
+                                : skor <= -0.05f
+                                    ? ("bg-danger", "fa-frown", "Negatif")
+                                    : ("bg-secondary", "fa-meh", "Nötr");
+
+                            <span class="badge @badgeClass" title="AI Duygu Skoru: @skor.ToString("F2")">
+                                <i class="fas @ikon me-1"></i>@etiket
+                            </span>
+                        }
+                    </div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(yorum.Yorum1))
+                {
+                    <p class="mt-2 mb-0 text-muted">@yorum.Yorum1</p>
+                }
+            </li>
+        }
+    </ul>
+}

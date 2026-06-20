@@ -1,0 +1,224 @@
+@model SiparisUygulama.Models.Restoran
+@{
+    ViewData["Title"] = "Menü Yönetimi";
+}
+
+<style>
+    .menu-card { border: none; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+    .price-tag { background: #f0f4ff; color: #667eea; padding: 3px 10px; border-radius: 20px; font-weight: 600; font-size: 0.85rem; }
+    .upload-zone { border: 2px dashed #e9ecef; border-radius: 12px; padding: 1rem; text-align: center; cursor: pointer; transition: border-color 0.2s; }
+    .upload-zone:hover { border-color: #667eea; }
+    .menu-thumb { width: 100%; height: 100px; object-fit: cover; border-radius: 8px 8px 0 0; }
+    .menu-thumb-placeholder { width: 100%; height: 100px; background: #f8f9fa; border-radius: 8px 8px 0 0; display:flex; align-items:center; justify-content:center; font-size:2rem; }
+</style>
+
+<div class="d-flex align-items-center gap-3 mb-4">
+    <a href="/RestoranYonetim/Index" class="btn btn-outline-secondary btn-sm rounded-3">
+        <i class="fas fa-arrow-left me-1"></i>Geri
+    </a>
+    <div class="flex-grow-1">
+        <h4 class="fw-bold mb-0">@Model.RestaurantName</h4>
+        <span class="text-muted small">Menü Yönetimi · @Model.Menus.Count ürün</span>
+    </div>
+    <button class="btn btn-success btn-sm rounded-3" data-bs-toggle="modal" data-bs-target="#ekleModal">
+        <i class="fas fa-plus me-1"></i>Yeni Ürün
+    </button>
+    <label class="btn btn-outline-primary btn-sm rounded-3 mb-0" style="cursor:pointer;">
+        <i class="fas fa-camera me-1"></i>Restoran Görseli
+        <input type="file" accept="image/*" class="d-none" onchange="restoranGorselYukle(this, @Model.RestaurantId)" />
+    </label>
+</div>
+
+<div class="row g-3">
+    @foreach (var item in Model.Menus)
+    {
+        <div class="col-md-4 col-sm-6">
+            <div class="menu-card card h-100" style="overflow:hidden;">
+                @if (!string.IsNullOrEmpty(item.GorselUrl))
+                {
+                    <img src="@item.GorselUrl" class="menu-thumb" alt="@item.ItemName" id="menuImg_@item.MenuItemId" />
+                }
+                else
+                {
+                    <div class="menu-thumb-placeholder" id="menuImg_@item.MenuItemId">🍔</div>
+                }
+                <div class="p-3">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                    <div class="fw-semibold small">@item.ItemName</div>
+                    <span class="price-tag">₺@item.Fiyat</span>
+                </div>
+                @if (!string.IsNullOrEmpty(item.Aciklama))
+                {
+                    <p class="text-muted mb-2" style="font-size:0.78rem;">@item.Aciklama</p>
+                }
+                @if (!string.IsNullOrEmpty(item.Kategori))
+                {
+                    <span class="badge bg-light text-dark small">@item.Kategori</span>
+                }
+                <div class="d-flex gap-2 mt-3">
+                    <label class="btn btn-outline-secondary btn-sm rounded-3 mb-0" style="cursor:pointer;" title="Görsel Yükle">
+                        <i class="fas fa-image"></i>
+                        <input type="file" accept="image/*" class="d-none" onchange="menuGorselYukle(this, @item.MenuItemId)" />
+                    </label>
+                    <button class="btn btn-warning btn-sm rounded-3 flex-grow-1 guncelle-btn"
+                        data-id="@item.MenuItemId" data-name="@item.ItemName"
+                        data-aciklama="@item.Aciklama" data-fiyat="@item.Fiyat" data-kategori="@item.Kategori">
+                        <i class="fas fa-edit me-1"></i>Düzenle
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm rounded-3 sil-btn" data-id="@item.MenuItemId">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Ekle Modal -->
+<div class="modal fade" id="ekleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="ekleForm">
+            <div class="modal-content" style="border-radius:16px; border:none;">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold">Yeni Ürün Ekle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body pt-0">
+                    <input type="hidden" name="RestaurantId" value="@Model.RestaurantId" />
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ürün Adı</label>
+                        <input type="text" name="ItemName" class="form-control" required style="border-radius:10px;" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Açıklama</label>
+                        <textarea name="Aciklama" class="form-control" rows="2" style="border-radius:10px; resize:none;"></textarea>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Fiyat (₺)</label>
+                            <input type="number" name="Fiyat" step="0.01" class="form-control" required style="border-radius:10px;" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Kategori</label>
+                            <input type="text" name="Kategori" class="form-control" style="border-radius:10px;" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary rounded-3" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-success rounded-3 px-4">Ekle</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Güncelle Modal -->
+<div class="modal fade" id="guncelleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="guncelleForm">
+            <div class="modal-content" style="border-radius:16px; border:none;">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold">Ürünü Düzenle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body pt-0">
+                    <input type="hidden" id="guncelleId" name="MenuItemId" />
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ürün Adı</label>
+                        <input type="text" id="guncelleAd" name="ItemName" class="form-control" required style="border-radius:10px;" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Açıklama</label>
+                        <textarea id="guncelleAciklama" name="Aciklama" class="form-control" rows="2" style="border-radius:10px; resize:none;"></textarea>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Fiyat (₺)</label>
+                            <input type="number" id="guncelleFiyat" name="Fiyat" step="0.01" class="form-control" required style="border-radius:10px;" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Kategori</label>
+                            <input type="text" id="guncelleKategori" name="Kategori" class="form-control" style="border-radius:10px;" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary rounded-3" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-warning rounded-3 px-4">Güncelle</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $('#ekleForm').submit(function (e) {
+            e.preventDefault();
+            $.post('/RestoranYonetim/EkleAjax', $(this).serialize(), function () {
+                location.reload();
+            }).fail(function (xhr) { alert("Hata: " + xhr.responseText); });
+        });
+
+        $(document).on('click', '.sil-btn', function () {
+            const id = $(this).data('id');
+            if (confirm("Bu ürünü silmek istediğinize emin misiniz?")) {
+                $.post('/RestoranYonetim/SilAjax', { id: id }, function () { location.reload(); });
+            }
+        });
+
+        $(document).on('click', '.guncelle-btn', function () {
+            $('#guncelleId').val($(this).data('id'));
+            $('#guncelleAd').val($(this).data('name'));
+            $('#guncelleAciklama').val($(this).data('aciklama'));
+            $('#guncelleFiyat').val($(this).data('fiyat'));
+            $('#guncelleKategori').val($(this).data('kategori'));
+            new bootstrap.Modal(document.getElementById('guncelleModal')).show();
+        });
+
+        function restoranGorselYukle(input, restoranId) {
+            const file = input.files[0];
+            if (!file) return;
+            const fd = new FormData();
+            fd.append('restoranId', restoranId);
+            fd.append('gorsel', file);
+            fetch('/Gorsel/RestoranGorsel', { method: 'POST', body: fd })
+                .then(r => r.ok ? r.text() : Promise.reject(r))
+                .then(() => { alert('Restoran görseli güncellendi!'); location.reload(); })
+                .catch(() => alert('Yükleme başarısız.'));
+        }
+
+        function menuGorselYukle(input, menuItemId) {
+            const file = input.files[0];
+            if (!file) return;
+            const fd = new FormData();
+            fd.append('menuItemId', menuItemId);
+            fd.append('gorsel', file);
+            fetch('/Gorsel/MenuGorsel', { method: 'POST', body: fd })
+                .then(r => r.ok ? r.text() : Promise.reject(r))
+                .then(url => {
+                    const el = document.getElementById('menuImg_' + menuItemId);
+                    if (el.tagName === 'IMG') { el.src = url; }
+                    else {
+                        const img = document.createElement('img');
+                        img.src = url; img.className = 'menu-thumb'; img.id = el.id;
+                        el.replaceWith(img);
+                    }
+                })
+                .catch(() => alert('Yükleme başarısız.'));
+        }
+
+        $('#guncelleForm').submit(function (e) {
+            e.preventDefault();
+            const id = $('#guncelleId').val();
+            $.ajax({
+                url: '/RestoranYonetim/GuncelleAjax?id=' + id, type: 'POST', data: $(this).serialize(),
+                success: function () { location.reload(); },
+                error: function (xhr) { alert("Hata: " + xhr.responseText); }
+            });
+        });
+    </script>
+}

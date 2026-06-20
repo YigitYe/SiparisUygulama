@@ -1,0 +1,161 @@
+@model List<SiparisUygulama.Models.Teslimat>
+@using System.Text.Json
+
+@{
+    Layout = "~/Views/Shared/_LayoutAdmin.cshtml";
+    ViewData["Title"] = "Bekleyen Teslimatlar";
+    var noktalar = Model
+        .Where(t => t.Order?.Kullanici?.VarsayilanEnlem != null)
+        .Select(t => new {
+            orderId = t.Order.OrderId,
+            deliveryId = t.DeliveryId,
+            musteri = t.Order.Kullanici?.KullaniciAdi ?? "?",
+            adres = t.Order.DeliveryAddress ?? "",
+            tutar = t.Order.TotalAmount,
+            enlem = t.Order.Kullanici!.VarsayilanEnlem!.Value,
+            boylam = t.Order.Kullanici!.VarsayilanBoylam ?? 0.0
+        }).ToList();
+}
+
+<style>
+    .teslimat-card { border: none; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 0.75rem; }
+    #bekleyenHarita { height: 340px; border-radius: 14px; margin-bottom: 1.5rem; box-shadow: 0 4px 20px rgba(102,126,234,0.12); border: 2px solid #e8eeff; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-1">Bekleyen Teslimatlar</h4>
+        <span class="text-muted small">@Model.Count bekleyen sipariş</span>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-success btn-sm rounded-3" onclick="konumGuncelle()" id="konumBtn">
+            <i class="fas fa-location-dot me-1"></i>Konumumu Güncelle
+        </button>
+        <a href="/Personel/Teslimatlarim" class="btn btn-outline-primary btn-sm rounded-3">
+            <i class="fas fa-list me-1"></i>Teslimatlarım
+        </a>
+    </div>
+</div>
+<div id="konumMesaj" class="alert alert-success d-none py-2 mb-3" role="alert"></div>
+
+@if (noktalar.Any())
+{
+    <div id="bekleyenHarita"></div>
+}
+
+@section Scripts {
+<script>
+function konumGuncelle() {
+    const btn = document.getElementById('konumBtn');
+    const mesaj = document.getElementById('konumMesaj');
+    if (!navigator.geolocation) { alert('Tarayıcınız konum desteklemiyor.'); return; }
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Alınıyor...';
+    navigator.geolocation.getCurrentPosition(function(pos) {
+        fetch('/Personel/KonumGuncelle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enlem: pos.coords.latitude, boylam: pos.coords.longitude })
+        }).then(r => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-location-dot me-1"></i>Konumumu Güncelle';
+            if (r.ok) {
+                mesaj.textContent = '✅ Konumunuz güncellendi! (' + pos.coords.latitude.toFixed(5) + ', ' + pos.coords.longitude.toFixed(5) + ')';
+                mesaj.classList.remove('d-none');
+                setTimeout(() => mesaj.classList.add('d-none'), 4000);
+                // Haritada konumu göster
+                if (window._bekleyenMap) {
+                    if (window._kureyMarker) window._kureyMarker.remove();
+                    window._kureyMarker = L.marker([pos.coords.latitude, pos.coords.longitude], {
+                        icon: L.divIcon({
+                            html: '<div style="background:#28a745;color:white;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:1rem;border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">🛵</div>',
+                            iconSize:[34,34], iconAnchor:[17,17], popupAnchor:[0,-17], className:''
+                        })
+                    }).addTo(window._bekleyenMap).bindPopup('<strong>📍 Mevcut Konumunuz</strong>').openPopup();
+                }
+            }
+        });
+    }, function() {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-location-dot me-1"></i>Konumumu Güncelle';
+        alert('Konum alınamadı. Lütfen izin verin.');
+    });
+}
+
+@if (noktalar.Any())
+{
+    var noktalarJson = System.Text.Json.JsonSerializer.Serialize(noktalar);
+    <text>
+    var bekleyenNoktalar = @Html.Raw(noktalarJson);
+    var bMap = L.map('bekleyenHarita');
+    window._bekleyenMap = bMap;
+    window._kureyMarker = null;
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap', maxZoom: 19
+    }).addTo(bMap);
+
+    var bounds = [];
+    bekleyenNoktalar.forEach(function(n, i) {
+        var ll = [n.enlem, n.boylam];
+        bounds.push(ll);
+        var icon = L.divIcon({
+            html: '<div style="background:#e74c3c;color:white;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">' + (i+1) + '</div>',
+            iconSize:[30,30], iconAnchor:[15,15], popupAnchor:[0,-15], className:''
+        });
+        L.marker(ll, { icon: icon }).addTo(bMap).bindPopup(
+            '<strong>' + n.musteri + '</strong><br>' +
+            '<span style="font-size:0.8rem;color:#666;">' + n.adres + '</span><br>' +
+            '<strong style="color:#28a745;">₺' + n.tutar + '</strong>'
+        );
+    });
+
+    if (bounds.length > 0) bMap.fitBounds(bounds, { padding: [40,40] });
+    else bMap.setView([41.015, 28.979], 11);
+    </text>
+}
+</script>
+}
+
+@if (!Model.Any())
+{
+    <div class="empty-state">
+        <div >✅</div>
+        <h5 class="">Bekleyen teslimat yok</h5>
+        <p class="text-muted small">Yeni siparişler geldiğinde burada görünecek.</p>
+    </div>
+}
+else
+{
+    @foreach (var t in Model)
+    {
+        <div class="teslimat-card card">
+            <div class="card-body p-4">
+                <div class="row align-items-center g-3">
+                    <div class="col-md-1 text-center">
+                        <div class="fw-bold text-muted small">#{@t.Order.OrderId}</div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="small text-muted">Müşteri</div>
+                        <div class="fw-semibold">@t.Order.Kullanici?.KullaniciAdi</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="small text-muted"><i class="fas fa-map-marker-alt me-1"></i>Adres</div>
+                        <div class="fw-medium small">@t.Order.DeliveryAddress</div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="small text-muted">Tutar</div>
+                        <div class="fw-bold text-success">₺@t.Order.TotalAmount</div>
+                    </div>
+                    <div class="col-md-2">
+                        <form asp-controller="Personel" asp-action="Ata" method="post">
+                            <input type="hidden" name="deliveryId" value="@t.DeliveryId" />
+                            <button type="submit" class="btn btn-success btn-sm rounded-3 w-100">
+                                <i class="fas fa-motorcycle me-1"></i>Al
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}

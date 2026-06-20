@@ -1,0 +1,173 @@
+@model SiparisUygulama.Models.Restoran
+
+@{
+    ViewData["Title"] = "Menü";
+    var kategoriler = Model.Menus.Select(m => m.Kategori).Where(k => !string.IsNullOrEmpty(k)).Distinct().OrderBy(k => k).ToList();
+}
+
+<style>
+    .menu-card { border: none; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); transition: all 0.2s; }
+    .menu-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.12); transform: translateY(-2px); }
+    .menu-card.selected { border: 2px solid #667eea !important; box-shadow: 0 0 0 3px rgba(102,126,234,0.15); }
+    .price-tag { background: #f0f4ff; color: #667eea; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.9rem; }
+    .sepet-fab { position: fixed; bottom: 2rem; right: 2rem; z-index: 100; }
+    .menu-img { width: 100%; height: 130px; object-fit: cover; border-radius: 10px 10px 0 0; }
+    .menu-img-placeholder { width: 100%; height: 130px; background: linear-gradient(135deg,#f8f9fa,#e9ecef); border-radius: 10px 10px 0 0; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
+    .kategori-btn { border-radius: 20px; font-size: 0.82rem; padding: 5px 14px; border: 1.5px solid #e9ecef; background: white; cursor: pointer; transition: all 0.15s; }
+    .kategori-btn.active, .kategori-btn:hover { background: #667eea; color: white; border-color: #667eea; }
+    .miktar-box { display: flex; align-items: center; gap: 6px; background: #f8f9fa; border-radius: 8px; padding: 3px 6px; }
+    .miktar-btn { width: 26px; height: 26px; border-radius: 6px; border: none; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 1rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .miktar-btn:hover { background: #667eea; color: white; }
+    .miktar-deger { font-weight: 600; font-size: 0.9rem; min-width: 20px; text-align: center; }
+    .restoran-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; padding: 1.5rem; color: white; margin-bottom: 1.5rem; }
+</style>
+
+<!-- Restoran Başlık -->
+<div class="restoran-header d-flex align-items-center gap-4 mb-4">
+    <a href="/Restoran/Index" class="btn btn-light btn-sm rounded-3">
+        <i class="fas fa-arrow-left me-1"></i>Geri
+    </a>
+    @if (!string.IsNullOrEmpty(Model.GorselUrl))
+    {
+        <img src="@Model.GorselUrl" style="width:60px;height:60px;border-radius:12px;object-fit:cover;border:2px solid rgba(255,255,255,0.3);" />
+    }
+    <div class="flex-grow-1">
+        <h4 class="fw-bold mb-1">@Model.RestaurantName</h4>
+        <div class="d-flex flex-wrap gap-3 opacity-90 small">
+            @if (!string.IsNullOrEmpty(Model.Adres))
+            {
+                <span><i class="fas fa-map-marker-alt me-1"></i>@Model.Adres</span>
+            }
+            @if (!string.IsNullOrEmpty(Model.MutfakTuru))
+            {
+                <span><i class="fas fa-utensils me-1"></i>@Model.MutfakTuru</span>
+            }
+            @if (!string.IsNullOrEmpty(Model.TelefonNumarasi))
+            {
+                <span><i class="fas fa-phone me-1"></i>@Model.TelefonNumarasi</span>
+            }
+        </div>
+    </div>
+    <a href="/Yorum/RestoranYorumlari?restoranId=@Model.RestaurantId" class="btn btn-light btn-sm rounded-3">
+        <i class="fas fa-star me-1 text-warning"></i>Yorumlar
+    </a>
+</div>
+
+<!-- Kategori Filtresi -->
+@if (kategoriler.Any())
+{
+    <div class="d-flex flex-wrap gap-2 mb-4">
+        <button class="kategori-btn active" onclick="filterKategori('tumu', this)">Tümü</button>
+        @foreach (var k in kategoriler)
+        {
+            <button class="kategori-btn" onclick="filterKategori('@k', this)">@k</button>
+        }
+    </div>
+}
+
+<!-- Menü -->
+<form id="topluSepetForm">
+    <div class="row g-3 mb-5" id="menuGrid">
+        @foreach (var item in Model.Menus)
+        {
+            <div class="col-md-4 col-sm-6 menu-item-wrapper" data-kategori="@item.Kategori">
+                <div class="menu-card card h-100" onclick="toggleSecim(this, @item.MenuItemId)" style="overflow:hidden; cursor:pointer;">
+                    @if (!string.IsNullOrEmpty(item.GorselUrl))
+                    {
+                        <img src="@item.GorselUrl" class="menu-img" alt="@item.ItemName" />
+                    }
+                    else
+                    {
+                        <div class="menu-img-placeholder">🍽️</div>
+                    }
+                    <div class="p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <div class="fw-semibold small">@item.ItemName</div>
+                            <input class="d-none menuSec" type="checkbox" name="menuIds" value="@item.MenuItemId" />
+                        </div>
+                        @if (!string.IsNullOrEmpty(item.Aciklama))
+                        {
+                            <p class="text-muted mb-2" style="font-size:0.78rem;">@item.Aciklama</p>
+                        }
+                        @if (!string.IsNullOrEmpty(item.Kategori))
+                        {
+                            <span class="badge bg-light text-dark mb-2" style="font-size:0.72rem;">@item.Kategori</span>
+                        }
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <span class="price-tag">₺@item.Fiyat</span>
+                            <div class="miktar-box miktar-ctrl" style="display:none;" onclick="event.stopPropagation()">
+                                <button type="button" class="miktar-btn" onclick="miktar(@item.MenuItemId, -1)">−</button>
+                                <span class="miktar-deger" id="miktar_@item.MenuItemId">1</span>
+                                <button type="button" class="miktar-btn" onclick="miktar(@item.MenuItemId, 1)">+</button>
+                                <input type="hidden" name="miktarlar[@item.MenuItemId]" id="miktarInput_@item.MenuItemId" value="1" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="sepet-fab">
+        <button type="submit" class="btn btn-primary btn-lg rounded-pill px-4 shadow">
+            <i class="fas fa-shopping-cart me-2"></i>Sepete Ekle
+            <span id="secimSayisi" class="badge bg-white text-primary ms-2" style="display:none;">0</span>
+        </button>
+    </div>
+</form>
+
+@section Scripts {
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function filterKategori(k, btn) {
+            document.querySelectorAll('.kategori-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.menu-item-wrapper').forEach(el => {
+                el.style.display = (k === 'tumu' || el.dataset.kategori === k) ? '' : 'none';
+            });
+        }
+
+        function toggleSecim(card, id) {
+            const cb = card.querySelector('.menuSec');
+            const miktarCtrl = card.querySelector('.miktar-ctrl');
+            cb.checked = !cb.checked;
+            card.classList.toggle('selected', cb.checked);
+            miktarCtrl.style.display = cb.checked ? 'flex' : 'none';
+            updateSayac();
+        }
+
+        function miktar(id, delta) {
+            const span = document.getElementById('miktar_' + id);
+            const input = document.getElementById('miktarInput_' + id);
+            let val = parseInt(span.textContent) + delta;
+            if (val < 1) val = 1;
+            if (val > 10) val = 10;
+            span.textContent = val;
+            input.value = val;
+        }
+
+        function updateSayac() {
+            const count = document.querySelectorAll('.menuSec:checked').length;
+            const badge = document.getElementById('secimSayisi');
+            badge.textContent = count;
+            badge.style.display = count > 0 ? 'inline' : 'none';
+        }
+
+        $('#topluSepetForm').submit(function (e) {
+            e.preventDefault();
+            const secilenler = [];
+            document.querySelectorAll('.menuSec:checked').forEach(cb => {
+                const id = cb.value;
+                const miktar = document.getElementById('miktarInput_' + id)?.value ?? 1;
+                for (let i = 0; i < parseInt(miktar); i++) secilenler.push(id);
+            });
+            if (secilenler.length === 0) { alert("Lütfen en az bir ürün seçin."); return; }
+            $.ajax({
+                url: '/Siparis/SepeteTopluEkle', type: 'POST',
+                contentType: 'application/json', data: JSON.stringify(secilenler),
+                success: function () { window.location.href = "/Siparis/Sepet"; },
+                error: function () { alert("Sepete ekleme başarısız."); }
+            });
+        });
+    </script>
+}

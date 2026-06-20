@@ -1,0 +1,43 @@
+@{
+    var code = ViewBag.StatusCode as int? ?? 404;
+    var is404 = code == 404;
+    ViewData["Title"] = is404 ? "Sayfa Bulunamadı" : "Hata " + code;
+}
+
+<style>
+    .error-page { text-align: center; padding: 5rem 2rem; }
+    .error-code { font-size: 7rem; font-weight: 900; background: linear-gradient(135deg,#667eea,#764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; }
+    .error-icon { font-size: 5rem; margin-bottom: 1rem; animation: float 3s ease-in-out infinite; }
+    @@keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+</style>
+
+<div class="error-page">
+    <div class="error-icon">@(is404 ? "🔍" : "⚠️")</div>
+    <div class="error-code">@code</div>
+    <h2 class="fw-bold mt-3 mb-2">@(is404 ? "Sayfa Bulunamadı" : "Bir Hata Oluştu")</h2>
+    <p class="text-muted mb-4 mx-auto" style="max-width:400px;">
+        @if (is404)
+        {
+            <span>Aradığınız sayfa mevcut değil veya taşınmış olabilir.</span>
+        }
+        else
+        {
+            <span>Sunucumuzda beklenmedik bir hata oluştu. Lütfen daha sonra tekrar deneyin.</span>
+        }
+    </p>
+
+    <div class="d-flex gap-3 justify-content-center flex-wrap">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary rounded-3">
+            <i class="fas fa-arrow-left me-1"></i>Geri Dön
+        </a>
+        <a href="/" class="btn btn-primary rounded-3">
+            <i class="fas fa-home me-1"></i>Ana Sayfa
+        </a>
+        @if (is404)
+        {
+            <a href="/Restoran/Index" class="btn btn-outline-primary rounded-3">
+                <i class="fas fa-utensils me-1"></i>Restoranlar
+            </a>
+        }
+    </div>
+</div>
